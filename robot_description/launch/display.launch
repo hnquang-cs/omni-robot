@@ -1,0 +1,16 @@
+<launch>
+  <!-- Basic robot display pipeline for URDF and TF inspection. -->
+  <arg name="model" default="$(find robot_description)/urdf/omni_robot.urdf.xacro"/>
+  <arg name="rviz_config" default="$(find robot_description)/rviz/robot.rviz"/>
+  <arg name="use_joint_state_publisher_gui" default="false"/>
+
+  <param name="robot_description" command="$(find xacro)/xacro $(arg model)"/>
+
+  <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher">
+    <param name="use_gui" value="$(arg use_joint_state_publisher_gui)"/>
+  </node>
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen"/>
+
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_config)" required="false"/>
+</launch>

@@ -1,0 +1,12 @@
+<launch>
+  <!-- Placeholder entry point for gmapping-based experiments. -->
+  <arg name="scan_topic" default="/scan"/>
+  <arg name="base_frame" default="base_link"/>
+  <arg name="odom_frame" default="odom"/>
+
+  <node pkg="slam_gmapping" type="slam_gmapping" name="slam_gmapping" output="screen" required="false">
+    <remap from="scan" to="$(arg scan_topic)"/>
+    <param name="base_frame" value="$(arg base_frame)"/>
+    <param name="odom_frame" value="$(arg odom_frame)"/>
+  </node>
+</launch>

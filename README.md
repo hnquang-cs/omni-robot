@@ -1,14 +1,27 @@
 # omni-robot
 
-ROS1 Noetic thesis workspace support files for an indoor omni-directional robot that uses stereo perception to replace LiDAR in the navigation stack.
+ROS1 Noetic thesis repository for an indoor omni-directional robot that uses stereo perception to replace LiDAR in the navigation stack.
+
+## Workspace layout
+
+- Main workspace: `~/catkin_ws`
+- Repository location: `~/catkin_ws/src/omni-robot`
+- Build tool: `catkin_make`
+
+This repository contains six ROS packages:
+
+- `robot_description`
+- `omni_base_controller`
+- `stereo_pipeline`
+- `nav_bringup`
+- `slam_benchmark`
+- `experiment_tools`
 
 ## Fixed environment
 
 - Ubuntu 20.04.6 LTS
 - ROS1 Noetic
 - Gazebo 11.15.1
-- Main workspace: `~/catkin_ws`
-- Build tool: `catkin_make`
 
 ## Important ROS packages
 
@@ -28,8 +41,10 @@ ROS1 Noetic thesis workspace support files for an indoor omni-directional robot 
 - `ros-noetic-joint-state-publisher`
 - `ros-noetic-robot-state-publisher`
 
+Install or verify thesis dependencies:
+
 ```bash
-source ./scripts/install_dependencies.sh
+./scripts/install_dependencies.sh
 ```
 
 ## Source commands
@@ -51,6 +66,12 @@ source ./scripts/env_setup.sh
 cd ~/catkin_ws
 catkin_make
 source ~/catkin_ws/devel/setup.bash
+```
+
+## Environment checks
+
+```bash
+./scripts/check_env.sh
 ```
 
 ## Basic tools
@@ -78,3 +99,4 @@ gazebo
 - This thesis is fixed on ROS1 Noetic and should not be upgraded casually.
 - Prefer official ROS Noetic packages from `apt` before introducing extra dependencies.
 - Rebuild the workspace after structural changes.
+- Keep runtime artifacts such as bags, logs, and experiment exports out of git.

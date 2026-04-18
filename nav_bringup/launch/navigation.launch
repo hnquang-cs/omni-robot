@@ -1,0 +1,16 @@
+<launch>
+  <!-- Navigation skeleton for move_base + TEB configuration. -->
+  <arg name="use_map" default="false"/>
+  <arg name="map_file" default="$(find nav_bringup)/maps/placeholder.yaml"/>
+  <arg name="scan_topic" default="/scan"/>
+
+  <rosparam command="load" file="$(find nav_bringup)/config/costmap_common.yaml"/>
+  <rosparam command="load" file="$(find nav_bringup)/config/global_costmap.yaml" ns="global_costmap"/>
+  <rosparam command="load" file="$(find nav_bringup)/config/local_costmap.yaml" ns="local_costmap"/>
+  <rosparam command="load" file="$(find nav_bringup)/config/teb_local_planner_params.yaml"/>
+
+  <!-- TODO: add map_server and AMCL when the SLAM/localization ownership is finalized. -->
+  <node pkg="move_base" type="move_base" name="move_base" output="screen" required="false">
+    <remap from="scan" to="$(arg scan_topic)"/>
+  </node>
+</launch>

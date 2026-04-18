@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<robot name="omni_robot" xmlns:xacro="http://ros.org/wiki/xacro">
+  <!-- Minimal placeholder model for early visualization and TF planning. -->
+  <xacro:property name="base_length" value="0.45"/>
+  <xacro:property name="base_width" value="0.35"/>
+  <xacro:property name="base_height" value="0.12"/>
+  <xacro:property name="wheel_radius" value="0.05"/>
+
+  <material name="robot_blue">
+    <color rgba="0.15 0.35 0.75 1.0"/>
+  </material>
+
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_to_base_link" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${base_height / 2.0}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+      <material name="robot_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="18.0"/>
+      <inertia ixx="0.40" ixy="0.0" ixz="0.0" iyy="0.55" iyz="0.0" izz="0.75"/>
+    </inertial>
+  </link>
+
+  <joint name="camera_mount_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_mount"/>
+    <origin xyz="0.12 0.0 0.18" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_mount">
+    <visual>
+      <geometry>
+        <box size="0.08 0.04 0.04"/>
+      </geometry>
+      <material name="robot_blue"/>
+    </visual>
+  </link>
+
+  <joint name="camera_left_joint" type="fixed">
+    <parent link="camera_mount"/>
+    <child link="camera_left"/>
+    <origin xyz="0.0 0.03 0.0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_left"/>
+
+  <joint name="camera_right_joint" type="fixed">
+    <parent link="camera_mount"/>
+    <child link="camera_right"/>
+    <origin xyz="0.0 -0.03 0.0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_right"/>
+
+  <joint name="laser_virtual_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="laser_virtual"/>
+    <origin xyz="0.14 0.0 0.10" rpy="0 0 0"/>
+  </joint>
+
+  <link name="laser_virtual"/>
+
+  <!-- Wheel placeholders keep the frame plan explicit for later controller work. -->
+  <joint name="front_left_wheel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="front_left_wheel"/>
+    <origin xyz="0.16 0.16 0.0" rpy="0 0 0"/>
+  </joint>
+  <link name="front_left_wheel"/>
+
+  <joint name="front_right_wheel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="front_right_wheel"/>
+    <origin xyz="0.16 -0.16 0.0" rpy="0 0 0"/>
+  </joint>
+  <link name="front_right_wheel"/>
+
+  <joint name="rear_left_wheel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rear_left_wheel"/>
+    <origin xyz="-0.16 0.16 0.0" rpy="0 0 0"/>
+  </joint>
+  <link name="rear_left_wheel"/>
+
+  <joint name="rear_right_wheel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rear_right_wheel"/>
+    <origin xyz="-0.16 -0.16 0.0" rpy="0 0 0"/>
+  </joint>
+  <link name="rear_right_wheel"/>
+</robot>

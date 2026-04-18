@@ -1,0 +1,41 @@
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Editor and shell backups
+*~
+*.swp
+*.swo
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and tooling caches
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ROS runtime artifacts
+*.bag
+*.active
+*.log
+roslaunch*.log
+
+# Experiment output folders
+bags/
+logs/
+results/
+artifacts/
+exports/
+
+# Local environment files
+.env
+.venv/
+venv/

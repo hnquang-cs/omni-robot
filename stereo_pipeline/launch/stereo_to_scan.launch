@@ -1,0 +1,13 @@
+<launch>
+  <!-- Expected chain: stereo images -> disparity/depth -> point cloud -> virtual scan. -->
+  <arg name="camera_namespace" default="/stereo"/>
+  <arg name="queue_size" default="5"/>
+  <arg name="use_pointcloud_to_laserscan" default="true"/>
+
+  <rosparam command="load" file="$(find stereo_pipeline)/config/stereo_params.yaml"/>
+
+  <!-- TODO: add stereo_image_proc, depth_image_proc, and pointcloud_to_laserscan nodes here. -->
+  <group if="$(arg use_pointcloud_to_laserscan)">
+    <node pkg="topic_tools" type="relay" name="virtual_scan_placeholder" args="$(arg camera_namespace)/scan /scan" output="screen" required="false"/>
+  </group>
+</launch>

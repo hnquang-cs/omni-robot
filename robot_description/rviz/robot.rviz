@@ -1,0 +1,30 @@
+Panels:
+  - Class: rviz/Displays
+    Name: Displays
+  - Class: rviz/Selection
+    Name: Selection
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.7
+      Class: rviz/RobotModel
+      Collision Enabled: false
+      Enabled: true
+      Name: Robot Model
+      Robot Description: robot_description
+      Visual Enabled: true
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Name: TF
+    - Class: rviz/Grid
+      Enabled: true
+      Name: Grid
+      Plane Cell Count: 20
+      Plane: XY
+  Enabled: true
+  Fixed Frame: base_footprint
+  Name: root
+Window Geometry:
+  Height: 900
+  Width: 1400

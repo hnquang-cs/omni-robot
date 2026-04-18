@@ -1,52 +1,48 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+# Install or verify the ROS Noetic packages used by this thesis repository.
 
-echo "=== Update system ==="
+set -euo pipefail
+
+REQUIRED_PACKAGES=(
+  ros-noetic-navigation
+  ros-noetic-slam-gmapping
+  ros-noetic-hector-slam
+  ros-noetic-robot-localization
+  ros-noetic-teb-local-planner
+  ros-noetic-gazebo-ros
+  ros-noetic-pointcloud-to-laserscan
+  ros-noetic-stereo-image-proc
+  ros-noetic-depth-image-proc
+  ros-noetic-image-proc
+  ros-noetic-image-view
+  ros-noetic-tf
+  ros-noetic-xacro
+  ros-noetic-joint-state-publisher
+  ros-noetic-robot-state-publisher
+)
+
+missing_packages=()
+
+for pkg in "${REQUIRED_PACKAGES[@]}"; do
+  if dpkg -s "$pkg" >/dev/null 2>&1; then
+    echo "[install_dependencies] Installed: $pkg"
+  else
+    echo "[install_dependencies] Missing:   $pkg"
+    missing_packages+=("$pkg")
+  fi
+done
+
+if [ "${#missing_packages[@]}" -eq 0 ]; then
+  echo "[install_dependencies] All required ROS packages are already installed."
+  exit 0
+fi
+
+echo
+echo "[install_dependencies] Installing missing packages with apt..."
 sudo apt update
+sudo apt install -y "${missing_packages[@]}"
 
-echo "=== Install basic tools ==="
-sudo apt install -y curl gnupg2 lsb-release ca-certificates
-
-echo "=== Add ROS repository ==="
-sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros1-latest.list'
-
-echo "=== Add ROS key ==="
-curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
-
-echo "=== Install ROS Noetic ==="
-sudo apt update
-sudo apt install -y ros-noetic-desktop-full
-
-echo "=== Setup ROS environment ==="
-echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
-source /opt/ros/noetic/setup.bash
-
-echo "=== Install rosdep ==="
-sudo apt install -y python3-rosdep
-sudo rosdep init || true
-rosdep update
-
-echo "=== Create catkin workspace ==="
-mkdir -p ~/catkin_ws/src
-cd ~/catkin_ws
-catkin_make
-
-echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
-
-echo "=== Install Gazebo ==="
-sudo apt install -y gazebo11 libgazebo11-dev
-
-echo "=== Install Navigation Stack ==="
-sudo apt install -y \
-  ros-noetic-navigation \
-  ros-noetic-move-base \
-  ros-noetic-amcl \
-  ros-noetic-map-server \
-  ros-noetic-global-planner \
-  ros-noetic-dwa-local-planner \
-  ros-noetic-teb-local-planner \
-  ros-noetic-gmapping
-
-echo "=== DONE ==="
-echo "👉 Open new terminal or run: source ~/.bashrc"
+echo
+echo "[install_dependencies] Done."
+echo "[install_dependencies] Re-run ./scripts/check_env.sh to verify the environment."

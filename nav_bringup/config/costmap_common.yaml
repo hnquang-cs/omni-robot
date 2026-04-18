@@ -1,0 +1,15 @@
+obstacle_range: 4.0
+raytrace_range: 4.5
+footprint: [[0.22, 0.18], [0.22, -0.18], [-0.22, -0.18], [-0.22, 0.18]]
+inflation_radius: 0.35
+transform_tolerance: 0.3
+map_type: costmap
+observation_sources: virtual_scan
+
+virtual_scan:
+  data_type: LaserScan
+  topic: /scan
+  sensor_frame: laser_virtual
+  marking: true
+  clearing: true
+  expected_update_rate: 0.0

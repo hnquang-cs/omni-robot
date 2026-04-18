@@ -1,0 +1,16 @@
+TebLocalPlannerROS:
+  odom_topic: /odom
+  map_frame: map
+  max_vel_x: 0.6
+  max_vel_y: 0.6
+  max_vel_theta: 1.2
+  acc_lim_x: 0.8
+  acc_lim_y: 0.8
+  acc_lim_theta: 1.0
+  footprint_model:
+    type: polygon
+    vertices: [[0.22, 0.18], [0.22, -0.18], [-0.22, -0.18], [-0.22, 0.18]]
+  xy_goal_tolerance: 0.10
+  yaw_goal_tolerance: 0.10
+  min_obstacle_dist: 0.20
+  include_costmap_obstacles: true

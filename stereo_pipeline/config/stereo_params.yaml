@@ -1,0 +1,14 @@
+stereo_pipeline:
+  camera_namespace: "/stereo"
+  left_image_topic: "/stereo/left/image_raw"
+  right_image_topic: "/stereo/right/image_raw"
+  left_camera_info_topic: "/stereo/left/camera_info"
+  right_camera_info_topic: "/stereo/right/camera_info"
+  pointcloud_topic: "/stereo/points2"
+  scan_topic: "/scan"
+  scan_frame: "laser_virtual"
+  range_min: 0.2
+  range_max: 6.0
+  height_clip_min: -0.10
+  height_clip_max: 0.80
+  queue_size: 5
