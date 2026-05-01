@@ -372,3 +372,291 @@ Use `rviz/slam_tuning.rviz`.
 - Increase `/scan` FOV if mapping coverage is insufficient.
 - Compare Hector SLAM with the same bag files.
 - Prepare navigation only after a repeatable map can be saved.
+
+## Stage 8: Reproducible SLAM Benchmark
+
+Stage 8 standardizes simulation-only benchmarking for thesis/report figures and tables. It compares SLAM backends with the existing stereo/depth-derived `/scan`; it does not add navigation, `move_base`, AMCL, ROS2, or EKF-SLAM.
+
+### Algorithms
+- `gmapping_conservative`: stable tuned Gmapping profile, `/map`, `map -> base_footprint`.
+- `gmapping_fast`: faster tuned Gmapping profile, `/map`, `map -> base_footprint`.
+- `hector`: Hector SLAM profile, `/map_hector`, `hector_map -> base_footprint`.
+
+Configuration is documented in:
+
+```bash
+config/benchmark_algorithms.yaml
+```
+
+### Scenarios
+- `corridor_static`: slow forward motion with gentle yaw sweeps.
+- `open_room_obstacles`: slow rectangular holonomic loop.
+- `narrow_turn`: short segments and slow turns for limited-FOV scan stress testing.
+
+All current scenarios reuse `robot_description/worlds/test_arena.world`; Stage 8 varies the drive pattern. This limitation is intentional and documented in `config/benchmark_scenarios.yaml`.
+
+### Metrics
+- Trajectory: ATE RMSE/mean/max/std and RPE RMSE when `evo` is installed.
+- Runtime: wall-clock trial runtime from the trial script.
+- Map: width, height, resolution, area, occupied/free/unknown cell ratios.
+- Success: recorded per trial in `runtime_status.csv`.
+
+If `evo` is missing, `compute_ate_rpe.sh` still writes a CSV with `N/A` values and a clear install/manual-run note.
+
+### Dependency Check
+
+```bash
+rosrun slam_benchmark check_stage8_dependencies.sh
+```
+
+Suggested installs if dependencies are missing:
+
+```bash
+sudo apt install ros-noetic-slam-gmapping ros-noetic-hector-slam ros-noetic-map-server
+pip3 install evo numpy matplotlib pyyaml
+```
+
+### Run One Trial
+
+```bash
+rosrun slam_benchmark run_single_slam_trial.sh corridor_static gmapping_conservative 1
+```
+
+Outputs are written to:
+
+```text
+results/stage8/raw/<scenario>/<algorithm>/rep_<id>/
+```
+
+The trial records `/scan`, `/odom`, `/tf`, `/tf_static`, `/clock`, `/cmd_vel`, `/gazebo/model_states`, and the algorithm map topic.
+
+### Run Full Benchmark
+
+```bash
+rosrun slam_benchmark run_stage8_benchmark.sh --yes
+```
+
+For command preview only:
+
+```bash
+rosrun slam_benchmark run_stage8_benchmark.sh --dry-run --yes
+```
+
+### Extract Trajectories
+
+Ground truth from Gazebo:
+
+```bash
+rosrun slam_benchmark extract_gazebo_ground_truth.py <bag_path> omni_robot <output_gt.tum>
+```
+
+SLAM estimate from TF:
+
+```bash
+rosrun slam_benchmark extract_slam_tf_trajectory.py <bag_path> map base_footprint <output_est.tum>
+```
+
+For Hector:
+
+```bash
+rosrun slam_benchmark extract_slam_tf_trajectory.py <bag_path> hector_map base_footprint <output_est.tum>
+```
+
+### Compute ATE/RPE
+
+```bash
+rosrun slam_benchmark compute_ate_rpe.sh <gt.tum> <est.tum> <output_dir>
+```
+
+### Evaluate Map
+
+```bash
+rosrun slam_benchmark evaluate_map_basic.py <map.yaml> <output_csv>
+```
+
+Optional occupied-cell IoU if a same-size ground-truth map exists:
+
+```bash
+rosrun slam_benchmark evaluate_map_basic.py <map.yaml> <output_csv> --ground-truth-map <ground_truth_map.yaml>
+```
+
+### Aggregate, Plot, and Table Export
+
+```bash
+rosrun slam_benchmark aggregate_stage8_results.py
+rosrun slam_benchmark plot_stage8_results.py
+rosrun slam_benchmark generate_latex_tables.py
+```
+
+Main outputs:
+
+```text
+results/stage8/csv/stage8_summary.csv
+results/stage8/csv/stage8_summary_mean.csv
+results/stage8/plots/
+results/stage8/latex/table_slam_comparison.tex
+results/stage8/markdown/table_slam_comparison.md
+```
+
+### Stage 8 Limitations
+- Gazebo ground truth is simulator truth, not motion-capture truth.
+- `/scan` is generated from stereo/depth data, not a real 2D LiDAR.
+- Occupancy ratios are basic consistency indicators, not full geometric map-quality evaluation.
+- Limited stereo scan FOV can dominate SLAM stability; inspect `/scan` in RViz when results look abnormal.
+
+## Stage 9: LiDAR SLAM Baseline
+
+Stage 9 adds a simulated 2D LiDAR as the main baseline sensor for stable indoor SLAM experiments. The stereo/depth scan remains available as a research and comparison branch; it is not deleted and is not remapped over `/lidar/scan`.
+
+New baseline pipeline:
+
+`Gazebo LiDAR -> /lidar/scan -> Gmapping/Hector -> map`
+
+Stereo comparison pipeline:
+
+`Gazebo stereo -> depth/pointcloud -> /scan -> Gmapping -> map`
+
+### Why LiDAR is the baseline
+
+The stereo-depth `/scan` can build a map, but current results show noisy/ragged scans, scan matching failures, and high unknown ratios. A planar 2D LiDAR gives a cleaner, repeatable SLAM baseline for thesis evaluation. Stereo-depth is retained for later comparison, SOTA depth model experiments, and possible obstacle-layer integration.
+
+### Run LiDAR SLAM
+
+```bash
+cd ~/catkin_ws
+source /opt/ros/noetic/setup.bash
+source devel/setup.bash
+roslaunch slam_benchmark slam_lidar_full.launch
+```
+
+Headless:
+
+```bash
+xvfb-run -a roslaunch slam_benchmark slam_lidar_full.launch use_rviz:=false gazebo_gui:=false
+```
+
+The full launch starts Gazebo, the Gazebo model controller, Gazebo truth odometry, Gmapping with `/lidar/scan`, and RViz. It does not launch `move_base`, AMCL, or real robot drivers.
+
+### Scan Source Selection
+
+Scan sources are documented in:
+
+```bash
+config/scan_sources.yaml
+```
+
+Gmapping LiDAR:
+
+```bash
+roslaunch slam_benchmark gmapping_lidar.launch scan_topic:=/lidar/scan
+```
+
+Gmapping stereo comparison:
+
+```bash
+roslaunch slam_benchmark gmapping_stereo.launch scan_topic:=/scan
+```
+
+The SLAM launch files remap only the SLAM node input `scan`; they do not globally remap `/lidar/scan` to `/scan`.
+
+### Hector LiDAR
+
+If installed:
+
+```bash
+roslaunch slam_benchmark hector_lidar.launch
+```
+
+If missing:
+
+```bash
+sudo apt install ros-noetic-hector-slam
+```
+
+Hector uses `hector_map` and `/map_hector` to avoid conflicts with Gmapping's default `/map`.
+
+### Check LiDAR
+
+```bash
+rosrun slam_benchmark check_lidar_stage9.sh
+```
+
+Manual checks:
+
+```bash
+rostopic hz /lidar/scan
+rostopic hz /odom
+rostopic hz /map
+rosrun tf tf_echo base_link lidar_link
+rosrun tf tf_echo map odom
+```
+
+RViz may show temporary map warnings until SLAM publishes `/map`.
+
+### Drive, Record, Save
+
+Drive a slow repeatable pattern:
+
+```bash
+rosrun slam_benchmark drive_lidar_mapping_pattern.sh rectangle
+```
+
+Record a LiDAR baseline bag:
+
+```bash
+rosrun slam_benchmark record_lidar_bag.sh corridor_static gmapping_lidar
+```
+
+Save a LiDAR map:
+
+```bash
+rosrun slam_benchmark save_lidar_map.sh lidar_gmapping_test
+```
+
+Outputs are written under:
+
+```text
+results/stage9/raw/
+results/stage9/maps/
+```
+
+### Benchmark LiDAR vs Stereo
+
+Algorithms are documented in:
+
+```bash
+config/stage9_algorithms.yaml
+```
+
+Run one trial:
+
+```bash
+rosrun slam_benchmark run_stage9_lidar_benchmark.sh --single corridor_static gmapping_lidar 1
+```
+
+Run all configured trials:
+
+```bash
+rosrun slam_benchmark run_stage9_lidar_benchmark.sh --yes
+```
+
+Main outputs:
+
+```text
+results/stage9/csv/stage9_summary.csv
+results/stage9/csv/stage9_summary_mean.csv
+results/stage9/latex/table_lidar_vs_stereo.tex
+results/stage9/markdown/table_lidar_vs_stereo.md
+results/stage9/plots/bar_ate_lidar_vs_stereo.png
+results/stage9/plots/bar_unknown_ratio_lidar_vs_stereo.png
+results/stage9/plots/bar_runtime_lidar_vs_stereo.png
+```
+
+Minimum comparison columns are sensor source, SLAM algorithm, scenario, ATE RMSE, RPE RMSE, map unknown ratio, runtime, success, and notes.
+
+### Stage 9 Limitations
+
+- Gazebo LiDAR is cleaner and more ideal than a real LiDAR.
+- Stereo-depth is currently not stable enough to be the main SLAM sensor.
+- The benchmark remains simulation-only; real robot validation belongs to a later hardware stage.
+- Stage 9 intentionally does not implement navigation, `move_base`, AMCL, or TEB.

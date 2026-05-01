@@ -1,0 +1,56 @@
+algorithms:
+  gmapping_conservative:
+    name: "Gmapping conservative"
+    launch_file: "gmapping_conservative.launch"
+    launch_args:
+      use_sim_time: "true"
+      scan_topic: "/scan"
+      base_frame: "base_footprint"
+      odom_frame: "odom"
+      map_frame: "map"
+    map_topic: "/map"
+    map_frame: "map"
+    estimated_trajectory_source:
+      parent_frame: "map"
+      child_frame: "base_footprint"
+      fallback_parent_frame: "odom"
+      fallback_child_frame: "base_footprint"
+    output_prefix: "gmapping_conservative"
+  gmapping_fast:
+    name: "Gmapping fast"
+    launch_file: "gmapping_fast.launch"
+    launch_args:
+      use_sim_time: "true"
+      scan_topic: "/scan"
+      base_frame: "base_footprint"
+      odom_frame: "odom"
+      map_frame: "map"
+    map_topic: "/map"
+    map_frame: "map"
+    estimated_trajectory_source:
+      parent_frame: "map"
+      child_frame: "base_footprint"
+      fallback_parent_frame: "odom"
+      fallback_child_frame: "base_footprint"
+    output_prefix: "gmapping_fast"
+  hector:
+    name: "Hector SLAM"
+    launch_file: "hector_sim.launch"
+    launch_args:
+      use_sim_time: "true"
+      scan_topic: "/scan"
+      base_frame: "base_footprint"
+      odom_frame: "odom"
+      map_frame: "hector_map"
+      map_topic: "/map_hector"
+    map_topic: "/map_hector"
+    map_frame: "hector_map"
+    estimated_trajectory_source:
+      parent_frame: "hector_map"
+      child_frame: "base_footprint"
+      fallback_parent_frame: "odom"
+      fallback_child_frame: "base_footprint"
+    output_prefix: "hector"
+
+notes:
+  isolation: "Run only one algorithm per trial. Restart the ROS launch stack between trials to clear SLAM state."

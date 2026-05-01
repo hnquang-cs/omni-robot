@@ -1,0 +1,9 @@
+scan_sources:
+  lidar:
+    topic: /lidar/scan
+    frame: lidar_link
+    description: Gazebo simulated 2D LiDAR
+  stereo:
+    topic: /scan
+    frame: base_link
+    description: Stereo-depth-derived LaserScan

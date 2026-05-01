@@ -1,0 +1,28 @@
+algorithms:
+  gmapping_lidar:
+    sensor_source: lidar
+    slam_algorithm: Gmapping
+    scan_topic: /lidar/scan
+    launch: gmapping_lidar.launch
+    map_frame: map
+    map_topic: /map
+    base_frame: base_footprint
+    optional: false
+  hector_lidar:
+    sensor_source: lidar
+    slam_algorithm: Hector
+    scan_topic: /lidar/scan
+    launch: hector_lidar.launch
+    map_frame: hector_map
+    map_topic: /map_hector
+    base_frame: base_footprint
+    optional: true
+  gmapping_stereo:
+    sensor_source: stereo
+    slam_algorithm: Gmapping
+    scan_topic: /scan
+    launch: gmapping_stereo.launch
+    map_frame: map
+    map_topic: /map
+    base_frame: base_footprint
+    optional: true

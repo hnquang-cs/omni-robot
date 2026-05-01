@@ -1,0 +1,49 @@
+scenarios:
+  corridor_static:
+    description: "Simple corridor-like pass: slow forward motion with small yaw sweeps to test hallway map consistency."
+    world_name: "$(find robot_description)/worlds/test_arena.world"
+    world_launch: "robot_description gazebo_sim.launch"
+    duration_sec: 95
+    drive_pattern: "corridor"
+    repetitions: 3
+    expected_topics:
+      - /scan
+      - /odom
+      - /tf
+      - /tf_static
+      - /clock
+      - /cmd_vel
+      - /gazebo/model_states
+  open_room_obstacles:
+    description: "Open-room obstacle mapping using a slow rectangular holonomic loop."
+    world_name: "$(find robot_description)/worlds/test_arena.world"
+    world_launch: "robot_description gazebo_sim.launch"
+    duration_sec: 130
+    drive_pattern: "rectangle"
+    repetitions: 3
+    expected_topics:
+      - /scan
+      - /odom
+      - /tf
+      - /tf_static
+      - /clock
+      - /cmd_vel
+      - /gazebo/model_states
+  narrow_turn:
+    description: "Narrow-turn stress case: short forward segments with slow in-place turns for limited scan FOV stability."
+    world_name: "$(find robot_description)/worlds/test_arena.world"
+    world_launch: "robot_description gazebo_sim.launch"
+    duration_sec: 110
+    drive_pattern: "narrow_turn"
+    repetitions: 3
+    expected_topics:
+      - /scan
+      - /odom
+      - /tf
+      - /tf_static
+      - /clock
+      - /cmd_vel
+      - /gazebo/model_states
+
+notes:
+  world_limitation: "All Stage 8 scenarios currently reuse test_arena.world; the benchmark varies trajectory pattern rather than Gazebo world geometry."

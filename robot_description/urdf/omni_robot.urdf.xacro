@@ -37,6 +37,17 @@
   <xacro:property name="imu_x_offset" value="0.0"/>
   <xacro:property name="imu_y_offset" value="0.0"/>
   <xacro:property name="imu_z_offset" value="0.11"/>
+  <xacro:property name="lidar_radius" value="0.045"/>
+  <xacro:property name="lidar_height" value="0.055"/>
+  <xacro:property name="lidar_mass" value="0.20"/>
+  <xacro:property name="lidar_x_offset" value="0.08"/>
+  <xacro:property name="lidar_y_offset" value="0.0"/>
+  <xacro:property name="lidar_z_offset" value="0.20"/>
+  <xacro:property name="lidar_min_range" value="0.15"/>
+  <xacro:property name="lidar_max_range" value="10.0"/>
+  <xacro:property name="lidar_samples" value="720"/>
+  <xacro:property name="lidar_update_rate" value="10.0"/>
+  <xacro:property name="gazebo_ros_laser_plugin" value="/opt/ros/noetic/lib/libgazebo_ros_laser.so"/>
 
   <material name="body_blue">
     <color rgba="0.18 0.36 0.72 1.0"/>
@@ -211,6 +222,37 @@
     </inertial>
   </link>
 
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="${lidar_x_offset} ${lidar_y_offset} ${lidar_z_offset}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="lidar_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+      <material name="sensor_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${lidar_mass}"/>
+      <inertia ixx="0.00018" ixy="0.0" ixz="0.0" iyy="0.00018" iyz="0.0" izz="0.00020"/>
+    </inertial>
+  </link>
+
+  <gazebo reference="lidar_link">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
   <!-- Gazebo camera sensors publish raw stereo topics for the processing pipeline. -->
   <gazebo reference="camera_left">
     <sensor type="camera" name="left_camera_sensor">
@@ -300,6 +342,39 @@
         <distortionK3>0.0</distortionK3>
         <distortionT1>0.0</distortionT1>
         <distortionT2>0.0</distortionT2>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- Simulated 2D planar LiDAR for Stage 9 SLAM/navigation baseline experiments. -->
+  <gazebo reference="lidar_link">
+    <sensor type="ray" name="lidar_2d_sensor">
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>${lidar_update_rate}</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>${lidar_samples}</samples>
+            <resolution>1</resolution>
+            <min_angle>${-pi}</min_angle>
+            <max_angle>${pi}</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>${lidar_min_range}</min>
+          <max>${lidar_max_range}</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+      <plugin name="lidar_2d_controller" filename="${gazebo_ros_laser_plugin}">
+        <topicName>/lidar/scan</topicName>
+        <frameName>lidar_link</frameName>
       </plugin>
     </sensor>
   </gazebo>

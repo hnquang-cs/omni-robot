@@ -2,8 +2,8 @@ target_frame: base_link
 transform_tolerance: 0.05
 min_height: 0.02
 max_height: 0.45
-angle_min: -0.523599
-angle_max: 0.523599
+angle_min: -1.57
+angle_max: 1.57
 angle_increment: 0.008726646
 scan_time: 0.0667
 range_min: 0.25

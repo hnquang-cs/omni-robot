@@ -197,7 +197,7 @@ def classify_pixels(
     return occupied, free, unknown
 
 
-def evaluate_map(map_yaml: Path) -> Dict[str, str]:
+def evaluate_map(map_yaml: Path, ground_truth_map: Path = None) -> Dict[str, str]:
     yaml_data = parse_simple_yaml(map_yaml)
     if "image" not in yaml_data:
         raise ValueError(f"Missing 'image' entry in {map_yaml}")
@@ -214,12 +214,13 @@ def evaluate_map(map_yaml: Path) -> Dict[str, str]:
     occupied, free, unknown = classify_pixels(pixels, occupied_thresh, free_thresh, negate)
     total = width * height
 
-    return {
+    row = {
         "map_yaml": str(map_yaml),
         "image": str(image_path),
         "width": str(width),
         "height": str(height),
         "resolution": f"{resolution:.6f}",
+        "area_m2": f"{width * height * resolution * resolution:.6f}",
         "occupied_cell_count": str(occupied),
         "free_cell_count": str(free),
         "unknown_cell_count": str(unknown),
@@ -227,7 +228,41 @@ def evaluate_map(map_yaml: Path) -> Dict[str, str]:
         "occupied_ratio": f"{occupied / total:.6f}" if total else "0.000000",
         "free_ratio": f"{free / total:.6f}" if total else "0.000000",
         "unknown_ratio": f"{unknown / total:.6f}" if total else "0.000000",
+        "occupied_iou": "N/A",
     }
+    if ground_truth_map:
+        try:
+            gt_yaml = parse_simple_yaml(ground_truth_map)
+            gt_image = Path(gt_yaml["image"])
+            if not gt_image.is_absolute():
+                gt_image = ground_truth_map.parent / gt_image
+            gt_width, gt_height, gt_pixels = load_image(gt_image)
+            if gt_width == width and gt_height == height:
+                gt_occ, _gt_free, _gt_unknown = classify_pixels(
+                    gt_pixels,
+                    float(gt_yaml.get("occupied_thresh", "0.65")),
+                    float(gt_yaml.get("free_thresh", "0.196")),
+                    int(float(gt_yaml.get("negate", "0"))),
+                )
+                pred_occ_set = {
+                    i for i, value in enumerate(pixels)
+                    if ((value / 255.0 if negate else (255.0 - value) / 255.0) > occupied_thresh)
+                }
+                gt_negate = int(float(gt_yaml.get("negate", "0")))
+                gt_occupied_thresh = float(gt_yaml.get("occupied_thresh", "0.65"))
+                gt_occ_set = {
+                    i for i, value in enumerate(gt_pixels)
+                    if ((value / 255.0 if gt_negate else (255.0 - value) / 255.0) > gt_occupied_thresh)
+                }
+                union = len(pred_occ_set | gt_occ_set)
+                intersection = len(pred_occ_set & gt_occ_set)
+                row["occupied_iou"] = f"{intersection / union:.6f}" if union else "N/A"
+                row["ground_truth_occupied_cells"] = str(gt_occ)
+            else:
+                row["occupied_iou"] = "N/A(size_mismatch)"
+        except Exception as exc:
+            row["occupied_iou"] = f"N/A({exc})"
+    return row
 
 
 def default_output_path(map_yaml: Path) -> Path:
@@ -241,7 +276,9 @@ def default_output_path(map_yaml: Path) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("map_yaml", type=Path)
+    parser.add_argument("output_positional", nargs="?", type=Path, default=None)
     parser.add_argument("-o", "--output", type=Path, default=None)
+    parser.add_argument("--ground-truth-map", type=Path, default=None)
     args = parser.parse_args()
 
     map_yaml = args.map_yaml.resolve()
@@ -250,12 +287,14 @@ def main() -> int:
         return 1
 
     try:
-        row = evaluate_map(map_yaml)
+        gt_map = args.ground_truth_map.resolve() if args.ground_truth_map else None
+        row = evaluate_map(map_yaml, gt_map)
     except Exception as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
 
-    output = args.output.resolve() if args.output else default_output_path(map_yaml)
+    output_arg = args.output or args.output_positional
+    output = output_arg.resolve() if output_arg else default_output_path(map_yaml)
     output.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(row.keys())
     with output.open("w", newline="") as handle:

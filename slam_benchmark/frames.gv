@@ -1,0 +1,18 @@
+digraph G {
+"base_footprint" -> "base_link"[label="Broadcaster: /robot_state_publisher\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 313.400 sec old)\nBuffer length: 0.000 sec\n"];
+"odom" -> "base_footprint"[label="Broadcaster: /gazebo_truth_odom\nAverage rate: 30.414 Hz\nMost recent transform: 313.400 ( 0.000 sec old)\nBuffer length: 2.466 sec\n"];
+"base_link" -> "camera_left"[label="Broadcaster: /robot_state_publisher\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 313.400 sec old)\nBuffer length: 0.000 sec\n"];
+"camera_left" -> "camera_left_optical"[label="Broadcaster: /robot_state_publisher\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 313.400 sec old)\nBuffer length: 0.000 sec\n"];
+"base_link" -> "camera_right"[label="Broadcaster: /robot_state_publisher\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 313.400 sec old)\nBuffer length: 0.000 sec\n"];
+"camera_right" -> "camera_right_optical"[label="Broadcaster: /robot_state_publisher\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 313.400 sec old)\nBuffer length: 0.000 sec\n"];
+"base_link" -> "imu_link"[label="Broadcaster: /robot_state_publisher\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 313.400 sec old)\nBuffer length: 0.000 sec\n"];
+"map" -> "odom"[label="Broadcaster: /slam_gmapping\nAverage rate: 20.392 Hz\nMost recent transform: 313.427 ( -0.027 sec old)\nBuffer length: 2.452 sec\n"];
+"base_link" -> "front_left_wheel"[label="Broadcaster: /robot_state_publisher\nAverage rate: 18.496 Hz\nMost recent transform: 313.400 ( 0.000 sec old)\nBuffer length: 2.433 sec\n"];
+"base_link" -> "front_right_wheel"[label="Broadcaster: /robot_state_publisher\nAverage rate: 18.496 Hz\nMost recent transform: 313.400 ( 0.000 sec old)\nBuffer length: 2.433 sec\n"];
+"base_link" -> "rear_left_wheel"[label="Broadcaster: /robot_state_publisher\nAverage rate: 18.496 Hz\nMost recent transform: 313.400 ( 0.000 sec old)\nBuffer length: 2.433 sec\n"];
+"base_link" -> "rear_right_wheel"[label="Broadcaster: /robot_state_publisher\nAverage rate: 18.496 Hz\nMost recent transform: 313.400 ( 0.000 sec old)\nBuffer length: 2.433 sec\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 313.400"[ shape=plaintext ] ;
+ }->"map";
+}
