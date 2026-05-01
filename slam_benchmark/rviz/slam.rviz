@@ -1,0 +1,64 @@
+Panels:
+  - Class: rviz/Displays
+    Name: Displays
+  - Class: rviz/Selection
+    Name: Selection
+  - Class: rviz/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz/Grid
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Cell Size: 0.5
+      Plane Cell Count: 24
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Marker Scale: 0.3
+      Name: TF
+      Show Axes: true
+      Show Names: false
+    - Class: rviz/RobotModel
+      Enabled: true
+      Name: RobotModel
+      Robot Description: robot_description
+      Visual Enabled: true
+      Collision Enabled: false
+      Alpha: 0.8
+    - Class: rviz/LaserScan
+      Enabled: true
+      Name: LaserScan /scan
+      Topic: /scan
+      Size (m): 0.05
+      Style: Points
+      Color: 255; 80; 80
+      Decay Time: 0
+    - Class: rviz/Map
+      Enabled: true
+      Name: Map /map
+      Topic: /map
+      Alpha: 0.7
+      Color Scheme: map
+      Draw Behind: false
+    - Class: rviz/Odometry
+      Enabled: true
+      Name: Odometry /odom
+      Topic: /odom
+      Shape: Arrow
+      Keep: 100
+      Shaft Length: 0.25
+      Shaft Radius: 0.02
+      Head Length: 0.08
+      Head Radius: 0.04
+  Enabled: true
+  Global Options:
+    Fixed Frame: map
+    Background Color: 48; 48; 48
+    Frame Rate: 30
+  Name: root
+Window Geometry:
+  Height: 900
+  Width: 1400

@@ -1,0 +1,23 @@
+<launch>
+  <!-- Stage 7 odometry/TF publisher from Gazebo model ground truth. -->
+  <arg name="enable" default="true"/>
+  <arg name="model_name" default="omni_robot"/>
+  <arg name="odom_topic" default="/odom"/>
+  <arg name="odom_frame" default="odom"/>
+  <arg name="base_frame" default="base_footprint"/>
+  <arg name="publish_tf" default="true"/>
+  <arg name="use_sim_time" default="true"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <group if="$(arg enable)">
+    <rosparam command="load" file="$(find omni_base_controller)/config/gazebo_truth_odom.yaml" ns="gazebo_truth_odom"/>
+    <param name="gazebo_truth_odom/model_name" value="$(arg model_name)"/>
+    <param name="gazebo_truth_odom/odom_topic" value="$(arg odom_topic)"/>
+    <param name="gazebo_truth_odom/odom_frame" value="$(arg odom_frame)"/>
+    <param name="gazebo_truth_odom/base_frame" value="$(arg base_frame)"/>
+    <param name="gazebo_truth_odom/publish_tf" value="$(arg publish_tf)"/>
+
+    <node pkg="omni_base_controller" type="gazebo_truth_odom.py" name="gazebo_truth_odom" output="screen"/>
+  </group>
+</launch>

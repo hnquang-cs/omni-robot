@@ -1,0 +1,34 @@
+<launch>
+  <!-- Launch Gazebo, spawn the robot, and publish the robot TF tree. -->
+  <arg name="use_sim_time" default="true"/>
+  <arg name="paused" default="false"/>
+  <arg name="gui" default="true"/>
+  <arg name="world_name" default="$(find robot_description)/worlds/test_arena.world"/>
+  <arg unless="$(arg paused)" name="paused_arg" value=""/>
+  <arg if="$(arg paused)" name="paused_arg" value="-u"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+  <param name="gazebo/enable_ros_network" value="true"/>
+
+  <!-- Gazebo camera sensors need a render-capable display or Xvfb in headless sessions. -->
+  <!-- Gazebo sensor plugins on this machine also need the Gazebo Classic plugin dir on LD_LIBRARY_PATH. -->
+  <node pkg="gazebo_ros" type="gzserver" name="gazebo" output="screen"
+        args="$(arg paused_arg) -e ode $(arg world_name)">
+    <env name="LD_LIBRARY_PATH" value="/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/noetic/lib:$(optenv LD_LIBRARY_PATH)"/>
+    <env name="GAZEBO_PLUGIN_PATH" value="/opt/ros/noetic/lib:$(optenv GAZEBO_PLUGIN_PATH)"/>
+  </node>
+
+  <node if="$(arg gui)" pkg="gazebo_ros" type="gzclient" name="gazebo_gui" output="screen">
+    <env name="LD_LIBRARY_PATH" value="/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/noetic/lib:$(optenv LD_LIBRARY_PATH)"/>
+    <env name="GAZEBO_PLUGIN_PATH" value="/opt/ros/noetic/lib:$(optenv GAZEBO_PLUGIN_PATH)"/>
+  </node>
+
+  <param name="robot_description" command="$(find xacro)/xacro $(find robot_description)/urdf/omni_robot.urdf.xacro"/>
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen">
+    <param name="publish_frequency" value="30.0"/>
+  </node>
+
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_omni_robot" output="screen"
+        args="-urdf -param robot_description -model omni_robot -x 0.0 -y 0.0 -z 0.02"/>
+</launch>

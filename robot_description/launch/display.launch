@@ -1,8 +1,9 @@
 <launch>
-  <!-- Basic robot display pipeline for URDF and TF inspection. -->
+  <!-- Basic robot display pipeline for URDF visualization and TF inspection. -->
   <arg name="model" default="$(find robot_description)/urdf/omni_robot.urdf.xacro"/>
   <arg name="rviz_config" default="$(find robot_description)/rviz/robot.rviz"/>
   <arg name="use_joint_state_publisher_gui" default="false"/>
+  <arg name="open_rviz" default="true"/>
 
   <param name="robot_description" command="$(find xacro)/xacro $(arg model)"/>
 
@@ -10,7 +11,9 @@
     <param name="use_gui" value="$(arg use_joint_state_publisher_gui)"/>
   </node>
 
-  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen"/>
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen">
+    <param name="publish_frequency" value="30.0"/>
+  </node>
 
-  <node pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_config)" required="false"/>
+  <node if="$(arg open_rviz)" pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_config)" required="false"/>
 </launch>

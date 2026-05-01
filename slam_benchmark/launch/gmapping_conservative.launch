@@ -1,0 +1,18 @@
+<launch>
+  <!-- Stage 7 tuned Gmapping profile for stable mapping from stereo /scan. -->
+  <arg name="scan_topic" default="/scan"/>
+  <arg name="base_frame" default="base_footprint"/>
+  <arg name="odom_frame" default="odom"/>
+  <arg name="map_frame" default="map"/>
+  <arg name="use_sim_time" default="false"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen">
+    <remap from="scan" to="$(arg scan_topic)"/>
+    <rosparam command="load" file="$(find slam_benchmark)/config/gmapping_conservative.yaml"/>
+    <param name="base_frame" value="$(arg base_frame)"/>
+    <param name="odom_frame" value="$(arg odom_frame)"/>
+    <param name="map_frame" value="$(arg map_frame)"/>
+  </node>
+</launch>

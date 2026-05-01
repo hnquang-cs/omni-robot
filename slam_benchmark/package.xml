@@ -15,8 +15,12 @@
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
 
-  <exec_depend>slam_gmapping</exec_depend>
+  <exec_depend>gmapping</exec_depend>
   <exec_depend>hector_mapping</exec_depend>
+  <exec_depend>map_server</exec_depend>
+  <exec_depend>rosbag</exec_depend>
+  <exec_depend>tf</exec_depend>
+  <exec_depend>rviz</exec_depend>
 
   <export/>
 </package>

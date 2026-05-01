@@ -1,0 +1,17 @@
+<launch>
+  <!-- Stage 7 kinematic controller that moves the Gazebo model from /cmd_vel. -->
+  <arg name="enable" default="true"/>
+  <arg name="model_name" default="omni_robot"/>
+  <arg name="cmd_vel_topic" default="/cmd_vel"/>
+  <arg name="use_sim_time" default="true"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <group if="$(arg enable)">
+    <rosparam command="load" file="$(find omni_base_controller)/config/gazebo_model_controller.yaml" ns="gazebo_model_cmd_vel"/>
+    <param name="gazebo_model_cmd_vel/model_name" value="$(arg model_name)"/>
+    <param name="gazebo_model_cmd_vel/cmd_vel_topic" value="$(arg cmd_vel_topic)"/>
+
+    <node pkg="omni_base_controller" type="gazebo_model_cmd_vel.py" name="gazebo_model_cmd_vel" output="screen"/>
+  </group>
+</launch>

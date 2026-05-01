@@ -1,0 +1,23 @@
+<launch>
+  <!-- Full Stage 5 simulated stereo pipeline ending in /scan. -->
+  <arg name="camera_namespace" default="stereo"/>
+  <arg name="scan_topic" default="/scan"/>
+  <arg name="target_frame" default="base_link"/>
+  <arg name="approximate_sync" default="false"/>
+  <arg name="queue_size" default="5"/>
+
+  <rosparam command="load" file="$(find stereo_pipeline)/config/stereo_params.yaml" ns="stereo_pipeline"/>
+
+  <include file="$(find stereo_pipeline)/launch/stereo_processing.launch">
+    <arg name="camera_namespace" value="$(arg camera_namespace)"/>
+    <arg name="approximate_sync" value="$(arg approximate_sync)"/>
+    <arg name="queue_size" value="$(arg queue_size)"/>
+  </include>
+
+  <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan" output="screen">
+    <rosparam command="load" file="$(find stereo_pipeline)/config/laserscan_params.yaml"/>
+    <param name="target_frame" value="$(arg target_frame)"/>
+    <remap from="cloud_in" to="/$(arg camera_namespace)/points2"/>
+    <remap from="scan" to="$(arg scan_topic)"/>
+  </node>
+</launch>

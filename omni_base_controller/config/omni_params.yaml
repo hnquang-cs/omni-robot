@@ -1,0 +1,17 @@
+wheel_radius: 0.06
+lx: 0.19
+ly: 0.16
+publish_rate: 30.0
+cmd_timeout: 0.5
+publish_odom: true
+publish_tf: true
+use_base_footprint: true
+odom_frame: odom
+base_frame: base_footprint
+cmd_vel_topic: /cmd_vel
+odom_topic: /odom
+wheel_topic: /wheel_velocities
+initial_pose:
+  x: 0.0
+  y: 0.0
+  yaw: 0.0

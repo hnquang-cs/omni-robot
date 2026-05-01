@@ -1,14 +1,86 @@
 <?xml version="1.0"?>
 <robot name="omni_robot" xmlns:xacro="http://ros.org/wiki/xacro">
-  <!-- Minimal placeholder model for early visualization and TF planning. -->
-  <xacro:property name="base_length" value="0.45"/>
-  <xacro:property name="base_width" value="0.35"/>
+  <!-- Basic geometric model for RViz and TF validation in Stage 3. -->
+  <!-- Chassis dimensions -->
+  <xacro:property name="base_length" value="0.52"/>
+  <xacro:property name="base_width" value="0.40"/>
   <xacro:property name="base_height" value="0.12"/>
-  <xacro:property name="wheel_radius" value="0.05"/>
+  <xacro:property name="base_mass" value="18.0"/>
 
-  <material name="robot_blue">
-    <color rgba="0.15 0.35 0.75 1.0"/>
+  <!-- Wheel layout -->
+  <xacro:property name="wheel_radius" value="0.06"/>
+  <xacro:property name="wheel_width" value="0.03"/>
+  <xacro:property name="wheel_mass" value="0.8"/>
+  <xacro:property name="wheel_x_offset" value="0.19"/>
+  <xacro:property name="wheel_y_offset" value="0.16"/>
+  <xacro:property name="wheel_z_offset" value="${wheel_radius}"/>
+
+  <!-- Sensor layout -->
+  <xacro:property name="camera_box_length" value="0.05"/>
+  <xacro:property name="camera_box_width" value="0.03"/>
+  <xacro:property name="camera_box_height" value="0.03"/>
+  <xacro:property name="camera_x_offset" value="0.19"/>
+  <xacro:property name="camera_z_offset" value="0.14"/>
+  <xacro:property name="camera_baseline" value="0.10"/>
+  <xacro:property name="camera_image_width" value="640"/>
+  <xacro:property name="camera_image_height" value="480"/>
+  <xacro:property name="camera_update_rate" value="15.0"/>
+  <xacro:property name="camera_horizontal_fov" value="1.047198"/>
+  <!-- Derived once from width and horizontal FOV for stable camera_info output. -->
+  <xacro:property name="camera_focal_length" value="554.26"/>
+  <xacro:property name="camera_cx" value="319.5"/>
+  <xacro:property name="camera_cy" value="239.5"/>
+  <!-- Gazebo Classic on this Noetic setup does not export GAZEBO_PLUGIN_PATH by default. -->
+  <xacro:property name="gazebo_ros_camera_plugin" value="/opt/ros/noetic/lib/libgazebo_ros_camera.so"/>
+  <xacro:property name="camera_near_clip" value="0.05"/>
+  <xacro:property name="camera_far_clip" value="10.0"/>
+  <xacro:property name="imu_x_offset" value="0.0"/>
+  <xacro:property name="imu_y_offset" value="0.0"/>
+  <xacro:property name="imu_z_offset" value="0.11"/>
+
+  <material name="body_blue">
+    <color rgba="0.18 0.36 0.72 1.0"/>
   </material>
+  <material name="wheel_black">
+    <color rgba="0.10 0.10 0.10 1.0"/>
+  </material>
+  <material name="sensor_gray">
+    <color rgba="0.55 0.55 0.60 1.0"/>
+  </material>
+
+  <xacro:macro name="wheel_link" params="wheel_name x y">
+    <joint name="${wheel_name}_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${wheel_name}"/>
+      <origin xyz="${x} ${y} ${wheel_z_offset}" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+    </joint>
+
+    <link name="${wheel_name}">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="wheel_black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="${wheel_mass}"/>
+        <inertia ixx="0.0015" ixy="0.0" ixz="0.0" iyy="0.0015" iyz="0.0" izz="0.0012"/>
+      </inertial>
+    </link>
+
+    <gazebo reference="${wheel_name}">
+      <material>Gazebo/Black</material>
+    </gazebo>
+  </xacro:macro>
 
   <link name="base_footprint"/>
 
@@ -24,7 +96,7 @@
       <geometry>
         <box size="${base_length} ${base_width} ${base_height}"/>
       </geometry>
-      <material name="robot_blue"/>
+      <material name="body_blue"/>
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -34,76 +106,201 @@
     </collision>
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <mass value="18.0"/>
-      <inertia ixx="0.40" ixy="0.0" ixz="0.0" iyy="0.55" iyz="0.0" izz="0.75"/>
+      <mass value="${base_mass}"/>
+      <inertia ixx="0.42" ixy="0.0" ixz="0.0" iyy="0.62" iyz="0.0" izz="0.92"/>
     </inertial>
   </link>
 
-  <joint name="camera_mount_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="camera_mount"/>
-    <origin xyz="0.12 0.0 0.18" rpy="0 0 0"/>
-  </joint>
+  <gazebo reference="base_link">
+    <material>Gazebo/Blue</material>
+  </gazebo>
 
-  <link name="camera_mount">
-    <visual>
-      <geometry>
-        <box size="0.08 0.04 0.04"/>
-      </geometry>
-      <material name="robot_blue"/>
-    </visual>
-  </link>
+  <xacro:wheel_link wheel_name="front_left_wheel" x="${wheel_x_offset}" y="${wheel_y_offset}"/>
+  <xacro:wheel_link wheel_name="front_right_wheel" x="${wheel_x_offset}" y="${-wheel_y_offset}"/>
+  <xacro:wheel_link wheel_name="rear_left_wheel" x="${-wheel_x_offset}" y="${wheel_y_offset}"/>
+  <xacro:wheel_link wheel_name="rear_right_wheel" x="${-wheel_x_offset}" y="${-wheel_y_offset}"/>
 
   <joint name="camera_left_joint" type="fixed">
-    <parent link="camera_mount"/>
+    <parent link="base_link"/>
     <child link="camera_left"/>
-    <origin xyz="0.0 0.03 0.0" rpy="0 0 0"/>
+    <origin xyz="${camera_x_offset} ${camera_baseline / 2.0} ${camera_z_offset}" rpy="0 0 0"/>
   </joint>
 
-  <link name="camera_left"/>
+  <link name="camera_left">
+    <visual>
+      <geometry>
+        <box size="${camera_box_length} ${camera_box_width} ${camera_box_height}"/>
+      </geometry>
+      <material name="sensor_gray"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${camera_box_length} ${camera_box_width} ${camera_box_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.10"/>
+      <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001"/>
+    </inertial>
+  </link>
+
+  <joint name="camera_left_optical_joint" type="fixed">
+    <parent link="camera_left"/>
+    <child link="camera_left_optical"/>
+    <origin xyz="0 0 0" rpy="${-pi / 2} 0 ${-pi / 2}"/>
+  </joint>
+
+  <link name="camera_left_optical"/>
 
   <joint name="camera_right_joint" type="fixed">
-    <parent link="camera_mount"/>
+    <parent link="base_link"/>
     <child link="camera_right"/>
-    <origin xyz="0.0 -0.03 0.0" rpy="0 0 0"/>
+    <origin xyz="${camera_x_offset} ${-camera_baseline / 2.0} ${camera_z_offset}" rpy="0 0 0"/>
   </joint>
 
-  <link name="camera_right"/>
+  <link name="camera_right">
+    <visual>
+      <geometry>
+        <box size="${camera_box_length} ${camera_box_width} ${camera_box_height}"/>
+      </geometry>
+      <material name="sensor_gray"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${camera_box_length} ${camera_box_width} ${camera_box_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.10"/>
+      <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001"/>
+    </inertial>
+  </link>
 
-  <joint name="laser_virtual_joint" type="fixed">
+  <joint name="camera_right_optical_joint" type="fixed">
+    <parent link="camera_right"/>
+    <child link="camera_right_optical"/>
+    <origin xyz="0 0 0" rpy="${-pi / 2} 0 ${-pi / 2}"/>
+  </joint>
+
+  <link name="camera_right_optical"/>
+
+  <joint name="imu_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="laser_virtual"/>
-    <origin xyz="0.14 0.0 0.10" rpy="0 0 0"/>
+    <child link="imu_link"/>
+    <origin xyz="${imu_x_offset} ${imu_y_offset} ${imu_z_offset}" rpy="0 0 0"/>
   </joint>
 
-  <link name="laser_virtual"/>
+  <link name="imu_link">
+    <visual>
+      <geometry>
+        <box size="0.04 0.04 0.02"/>
+      </geometry>
+      <material name="sensor_gray"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.04 0.04 0.02"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.05"/>
+      <inertia ixx="0.00005" ixy="0.0" ixz="0.0" iyy="0.00005" iyz="0.0" izz="0.00005"/>
+    </inertial>
+  </link>
 
-  <!-- Wheel placeholders keep the frame plan explicit for later controller work. -->
-  <joint name="front_left_wheel_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="front_left_wheel"/>
-    <origin xyz="0.16 0.16 0.0" rpy="0 0 0"/>
-  </joint>
-  <link name="front_left_wheel"/>
+  <!-- Gazebo camera sensors publish raw stereo topics for the processing pipeline. -->
+  <gazebo reference="camera_left">
+    <sensor type="camera" name="left_camera_sensor">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>${camera_update_rate}</update_rate>
+      <camera>
+        <horizontal_fov>${camera_horizontal_fov}</horizontal_fov>
+        <image>
+          <width>${camera_image_width}</width>
+          <height>${camera_image_height}</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>${camera_near_clip}</near>
+          <far>${camera_far_clip}</far>
+        </clip>
+        <distortion>
+          <k1>0.0</k1>
+          <k2>0.0</k2>
+          <k3>0.0</k3>
+          <p1>0.0</p1>
+          <p2>0.0</p2>
+          <center>0.5 0.5</center>
+        </distortion>
+      </camera>
+      <plugin name="left_camera_controller" filename="${gazebo_ros_camera_plugin}">
+        <alwaysOn>true</alwaysOn>
+        <updateRate>${camera_update_rate}</updateRate>
+        <cameraName>stereo/left</cameraName>
+        <imageTopicName>image_raw</imageTopicName>
+        <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+        <frameName>camera_left_optical</frameName>
+        <hackBaseline>0.0</hackBaseline>
+        <Cx>${camera_cx}</Cx>
+        <CxPrime>${camera_cx}</CxPrime>
+        <Cy>${camera_cy}</Cy>
+        <focalLength>${camera_focal_length}</focalLength>
+        <distortionK1>0.0</distortionK1>
+        <distortionK2>0.0</distortionK2>
+        <distortionK3>0.0</distortionK3>
+        <distortionT1>0.0</distortionT1>
+        <distortionT2>0.0</distortionT2>
+      </plugin>
+    </sensor>
+  </gazebo>
 
-  <joint name="front_right_wheel_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="front_right_wheel"/>
-    <origin xyz="0.16 -0.16 0.0" rpy="0 0 0"/>
-  </joint>
-  <link name="front_right_wheel"/>
-
-  <joint name="rear_left_wheel_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="rear_left_wheel"/>
-    <origin xyz="-0.16 0.16 0.0" rpy="0 0 0"/>
-  </joint>
-  <link name="rear_left_wheel"/>
-
-  <joint name="rear_right_wheel_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="rear_right_wheel"/>
-    <origin xyz="-0.16 -0.16 0.0" rpy="0 0 0"/>
-  </joint>
-  <link name="rear_right_wheel"/>
+  <gazebo reference="camera_right">
+    <sensor type="camera" name="right_camera_sensor">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>${camera_update_rate}</update_rate>
+      <camera>
+        <horizontal_fov>${camera_horizontal_fov}</horizontal_fov>
+        <image>
+          <width>${camera_image_width}</width>
+          <height>${camera_image_height}</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>${camera_near_clip}</near>
+          <far>${camera_far_clip}</far>
+        </clip>
+        <distortion>
+          <k1>0.0</k1>
+          <k2>0.0</k2>
+          <k3>0.0</k3>
+          <p1>0.0</p1>
+          <p2>0.0</p2>
+          <center>0.5 0.5</center>
+        </distortion>
+      </camera>
+      <plugin name="right_camera_controller" filename="${gazebo_ros_camera_plugin}">
+        <alwaysOn>true</alwaysOn>
+        <updateRate>${camera_update_rate}</updateRate>
+        <cameraName>stereo/right</cameraName>
+        <imageTopicName>image_raw</imageTopicName>
+        <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+        <frameName>camera_right_optical</frameName>
+        <hackBaseline>${camera_baseline}</hackBaseline>
+        <Cx>${camera_cx}</Cx>
+        <CxPrime>${camera_cx}</CxPrime>
+        <Cy>${camera_cy}</Cy>
+        <focalLength>${camera_focal_length}</focalLength>
+        <distortionK1>0.0</distortionK1>
+        <distortionK2>0.0</distortionK2>
+        <distortionK3>0.0</distortionK3>
+        <distortionT1>0.0</distortionT1>
+        <distortionT2>0.0</distortionT2>
+      </plugin>
+    </sensor>
+  </gazebo>
 </robot>

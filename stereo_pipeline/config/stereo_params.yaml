@@ -1,14 +1,29 @@
-stereo_pipeline:
-  camera_namespace: "/stereo"
-  left_image_topic: "/stereo/left/image_raw"
-  right_image_topic: "/stereo/right/image_raw"
-  left_camera_info_topic: "/stereo/left/camera_info"
-  right_camera_info_topic: "/stereo/right/camera_info"
-  pointcloud_topic: "/stereo/points2"
-  scan_topic: "/scan"
-  scan_frame: "laser_virtual"
-  range_min: 0.2
-  range_max: 6.0
-  height_clip_min: -0.10
-  height_clip_max: 0.80
-  queue_size: 5
+camera_namespace: "stereo"
+approximate_sync: false
+queue_size: 5
+image_width: 640
+image_height: 480
+camera_update_rate_hz: 15.0
+camera_horizontal_fov_rad: 1.047198
+baseline_m: 0.10
+
+frames:
+  base_frame: "base_link"
+  left_camera: "camera_left"
+  right_camera: "camera_right"
+  left_optical: "camera_left_optical"
+  right_optical: "camera_right_optical"
+
+topics:
+  left_image_raw: "/stereo/left/image_raw"
+  right_image_raw: "/stereo/right/image_raw"
+  left_camera_info: "/stereo/left/camera_info"
+  right_camera_info: "/stereo/right/camera_info"
+  disparity: "/stereo/disparity"
+  points2: "/stereo/points2"
+  scan: "/scan"
+
+notes:
+  - "Central reference for the Stage 5 Gazebo stereo pipeline."
+  - "stereo_image_proc consumes left/right image_raw + camera_info and publishes disparity + points2."
+  - "pointcloud_to_laserscan converts /stereo/points2 into /scan in the base_link frame."

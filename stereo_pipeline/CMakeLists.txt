@@ -19,3 +19,9 @@ include_directories(
 install(DIRECTORY launch config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
+
+install(PROGRAMS
+  scripts/check_stereo_topics.sh
+  scripts/check_scan.sh
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)

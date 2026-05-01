@@ -1,19 +1,94 @@
 # robot_description
 
 ## Purpose
-This package stores the placeholder URDF/Xacro model, frame layout, and RViz assets for the omni thesis robot.
+This package stores the robot model, frame layout, and RViz assets for the omni thesis platform during the visualization-focused stage of development.
 
-## Planned inputs and outputs
-- Input: `joint_states` from `joint_state_publisher` or a future hardware/simulation source.
-- Output: `/tf` from `robot_state_publisher`.
-- Output: `robot_description` parameter for visualization and downstream launch files.
+## Robot structure
+- `base_footprint`: root frame on the ground plane.
+- `base_link`: chassis frame, using the ROS convention `x forward`, `y left`, `z up`.
+- Wheels:
+  - `front_left_wheel`
+  - `front_right_wheel`
+  - `rear_left_wheel`
+  - `rear_right_wheel`
+- Sensors:
+  - `camera_left`
+  - `camera_right`
+  - `imu_link`
+
+## Dimensions
+- Chassis: `0.52 m x 0.40 m x 0.12 m`
+- Wheel radius: `0.06 m`
+- Wheel width: `0.03 m`
+- Wheel offsets from `base_link`: `x = 0.19 m`, `y = 0.16 m`
+- Stereo camera baseline: `0.10 m`
+- Camera x offset: `0.19 m`
+- Camera z offset: `0.14 m`
 
 ## Important files
-- `urdf/omni_robot.urdf.xacro`: minimal base, camera, and virtual laser frame layout.
+- `urdf/omni_robot.urdf.xacro`: xacro model for the chassis, wheels, and sensors.
 - `launch/display.launch`: launches the model, TF publisher, and RViz.
-- `rviz/robot.rviz`: default visualization profile for early validation.
+- `launch/gazebo_sim.launch`: launches Gazebo with the robot and the Stage 5 test world.
+- `worlds/test_arena.world`: simple arena with obstacles at different depths for stereo testing.
+- `rviz/robot.rviz`: default RViz profile with RobotModel, TF, and Grid.
 
-## Next-stage work
-- Replace the placeholder geometry with a measured chassis model.
-- Add wheel joints, sensors, and inertial tuning for simulation.
-- Align all frames with the final navigation and stereo perception stack.
+## Launch
+```bash
+cd ~/catkin_ws
+source /opt/ros/noetic/setup.bash
+source devel/setup.bash
+roslaunch robot_description display.launch
+```
+
+For headless TF checks without opening RViz:
+
+```bash
+roslaunch robot_description display.launch open_rviz:=false
+```
+
+Launch the Gazebo stereo simulation:
+
+```bash
+roslaunch robot_description gazebo_sim.launch gui:=true
+```
+
+For headless Gazebo testing:
+
+```bash
+roslaunch robot_description gazebo_sim.launch gui:=false
+```
+
+If you run Gazebo over SSH or another headless session, camera sensors still need rendering.
+On a machine without an active X display, install `xvfb` and launch Gazebo through:
+
+```bash
+xvfb-run -a roslaunch robot_description gazebo_sim.launch gui:=false
+```
+
+## Expected TF chain
+- `base_footprint -> base_link`
+- `base_link -> front_left_wheel`
+- `base_link -> front_right_wheel`
+- `base_link -> rear_left_wheel`
+- `base_link -> rear_right_wheel`
+- `base_link -> camera_left`
+- `base_link -> camera_right`
+- `base_link -> imu_link`
+
+## TODO for later stages
+- Add measured inertial values and refined geometry.
+- Add transmission or plugin elements only when simulation/control work begins.
+- Tune Gazebo-specific properties once physics and control are introduced.
+
+## Gazebo stereo camera notes
+- The Gazebo model publishes:
+  - `/stereo/left/image_raw`
+  - `/stereo/left/camera_info`
+  - `/stereo/right/image_raw`
+  - `/stereo/right/camera_info`
+- Camera frame IDs are published from:
+  - `camera_left_optical`
+  - `camera_right_optical`
+- The simulated baseline matches the URDF baseline of `0.10 m`.
+- The Gazebo plugins use a simple zero-distortion camera model and fixed calibration values to keep Stage 5 easy to debug.
+- In headless environments, the world can still load without errors while the camera topics remain silent if Gazebo cannot create a render context.

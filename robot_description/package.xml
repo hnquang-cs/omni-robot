@@ -18,6 +18,8 @@
   <depend>urdf</depend>
   <depend>robot_state_publisher</depend>
   <depend>joint_state_publisher</depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>gazebo_plugins</exec_depend>
 
   <export/>
 </package>

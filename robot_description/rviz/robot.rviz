@@ -3,10 +3,12 @@ Panels:
     Name: Displays
   - Class: rviz/Selection
     Name: Selection
+  - Class: rviz/Views
+    Name: Views
 Visualization Manager:
   Class: ""
   Displays:
-    - Alpha: 0.7
+    - Alpha: 0.8
       Class: rviz/RobotModel
       Collision Enabled: false
       Enabled: true
@@ -15,6 +17,9 @@ Visualization Manager:
       Visual Enabled: true
     - Class: rviz/TF
       Enabled: true
+      Marker Scale: 0.25
+      Show Axes: true
+      Show Names: true
       Frame Timeout: 15
       Name: TF
     - Class: rviz/Grid
@@ -22,6 +27,7 @@ Visualization Manager:
       Name: Grid
       Plane Cell Count: 20
       Plane: XY
+      Cell Size: 0.5
   Enabled: true
   Fixed Frame: base_footprint
   Name: root

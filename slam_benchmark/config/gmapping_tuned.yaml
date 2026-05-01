@@ -1,0 +1,10 @@
+# Reference summary of Stage 7 Gmapping profiles.
+# The launch files load gmapping_conservative.yaml or gmapping_fast.yaml because
+# slam_gmapping expects flat private parameters.
+profiles:
+  conservative:
+    file: config/gmapping_conservative.yaml
+    purpose: More particles and smaller update thresholds for noisy stereo /scan.
+  faster_update:
+    file: config/gmapping_fast.yaml
+    purpose: Fewer particles and lskip=1 for quicker bag replay sweeps.

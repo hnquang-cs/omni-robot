@@ -1,0 +1,24 @@
+<launch>
+  <!-- Process simulated stereo images into disparity and point cloud outputs. -->
+  <arg name="camera_namespace" default="stereo"/>
+  <arg name="approximate_sync" default="false"/>
+  <arg name="queue_size" default="5"/>
+
+  <!-- This YAML is the Stage 5 central reference for expected topics and frames. -->
+  <rosparam command="load" file="$(find stereo_pipeline)/config/stereo_params.yaml" ns="stereo_pipeline"/>
+
+  <group ns="$(arg camera_namespace)">
+    <node pkg="nodelet" type="nodelet" name="stereo_image_proc_manager" args="manager" output="screen"/>
+
+    <!-- stereo_image_proc uses the left/right raw images and camera_info topics from Gazebo. -->
+    <include file="$(find stereo_image_proc)/launch/stereo_image_proc.launch">
+      <arg name="manager" value="/$(arg camera_namespace)/stereo_image_proc_manager"/>
+      <arg name="left" value="left"/>
+      <arg name="right" value="right"/>
+      <arg name="approximate_sync" value="$(arg approximate_sync)"/>
+    </include>
+
+    <param name="disparity/queue_size" value="$(arg queue_size)"/>
+    <param name="point_cloud2/queue_size" value="$(arg queue_size)"/>
+  </group>
+</launch>
