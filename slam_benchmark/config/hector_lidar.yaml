@@ -11,6 +11,6 @@ map_update_angle_thresh: 0.06
 laser_z_min_value: -0.2
 laser_z_max_value: 0.2
 use_tf_scan_transformation: true
-use_tf_pose_start_estimate: true
-scan_subscriber_queue_size: 5
+use_tf_pose_start_estimate: false
+scan_subscriber_queue_size: 1
 scan_topic: scan

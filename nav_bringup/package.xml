@@ -13,9 +13,15 @@
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
   <depend>tf</depend>
 
+  <exec_depend>amcl</exec_depend>
+  <exec_depend>costmap_2d</exec_depend>
+  <exec_depend>global_planner</exec_depend>
+  <exec_depend>map_server</exec_depend>
   <exec_depend>move_base</exec_depend>
+  <exec_depend>navfn</exec_depend>
   <exec_depend>teb_local_planner</exec_depend>
 
   <export/>

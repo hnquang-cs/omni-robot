@@ -1,0 +1,12 @@
+input_topic: /cmd_vel_raw
+output_topic: /cmd_vel
+publish_rate: 30.0
+cmd_timeout: 0.5
+
+max_vx: 0.25
+max_vy: 0.20
+max_wz: 0.35
+
+max_acc_x: 0.30
+max_acc_y: 0.30
+max_acc_wz: 0.45

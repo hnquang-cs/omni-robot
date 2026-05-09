@@ -1,0 +1,44 @@
+Panels:
+  - Class: rviz/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz/Grid
+      Enabled: true
+      Name: Grid
+    - Class: rviz/Map
+      Enabled: true
+      Name: Map
+      Topic: /map
+    - Class: rviz/TF
+      Enabled: true
+      Name: TF
+    - Class: rviz/RobotModel
+      Enabled: true
+      Name: RobotModel
+      Robot Description: robot_description
+    - Class: rviz/LaserScan
+      Enabled: true
+      Name: LiDAR Scan
+      Topic: /lidar/scan
+      Size (m): 0.03
+      Style: Points
+  Enabled: true
+  Fixed Frame: map
+  Name: root
+  Tools:
+    - Class: rviz/Interact
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+    - Class: rviz/SetInitialPose
+      Topic: /initialpose
+  Value: true
+  Views:
+    Current:
+      Class: rviz/TopDownOrtho
+      Name: Current View
+      Scale: 10
+Window Geometry:
+  Height: 900
+  Width: 1400

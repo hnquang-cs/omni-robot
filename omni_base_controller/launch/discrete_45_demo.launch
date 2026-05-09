@@ -1,0 +1,73 @@
+<launch>
+  <!--
+    End-to-end demo for the discrete 45-degree motion primitive controller.
+
+    Brings up:
+      - Gazebo world (test_arena_wide_obstacles) + omni_robot with LiDAR.
+      - gazebo_model_cmd_vel  : applies /cmd_vel to the Gazebo model (forward-only).
+      - gazebo_truth_odom     : publishes /odom (and TF odom -> base_footprint).
+      - discrete_45_motion_controller : converts FORWARD/TURN_*/STOP into /cmd_vel.
+      - RViz with discrete_45_demo.rviz.
+
+    No move_base, no Gmapping, no Hector — this is a primitive demo.
+  -->
+
+  <arg name="use_sim_time"   default="true"/>
+  <arg name="gui"            default="true"/>
+  <arg name="use_rviz"       default="true"/>
+  <arg name="paused"         default="false"/>
+  <arg name="model_name"     default="omni_robot"/>
+  <arg name="odom_topic"     default="/odom"/>
+  <arg name="cmd_vel_topic"  default="/cmd_vel"/>
+  <arg name="primitive_topic" default="/motion_primitive_cmd"/>
+  <arg name="state_topic"    default="/motion_primitive_state"/>
+  <arg name="debug_topic"    default="/motion_primitive_debug"/>
+  <arg name="base_frame"     default="base_footprint"/>
+  <arg name="odom_frame"     default="odom"/>
+  <arg name="rviz_config"    default="$(find omni_base_controller)/rviz/discrete_45_demo.rviz"/>
+  <arg name="world_launch"   default="$(find robot_description)/launch/gazebo_lidar_wide_obstacles.launch"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <!-- 1) Gazebo + robot + LiDAR -->
+  <include file="$(arg world_launch)">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="gui"          value="$(arg gui)"/>
+    <arg name="paused"       value="$(arg paused)"/>
+    <arg name="x"            value="0.0"/>
+    <arg name="y"            value="0.0"/>
+    <arg name="z"            value="0.05"/>
+    <arg name="yaw"          value="0.0"/>
+  </include>
+
+  <!-- 2) Gazebo kinematic controller (subscribes /cmd_vel) -->
+  <include file="$(find omni_base_controller)/launch/gazebo_model_controller.launch">
+    <arg name="use_sim_time"         value="$(arg use_sim_time)"/>
+    <arg name="model_name"           value="$(arg model_name)"/>
+    <arg name="cmd_vel_topic"        value="$(arg cmd_vel_topic)"/>
+    <arg name="max_angular_velocity" value="0.45"/>
+  </include>
+
+  <!-- 3) Ground-truth odom from Gazebo model_states -->
+  <include file="$(find omni_base_controller)/launch/gazebo_truth_odom.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="model_name"   value="$(arg model_name)"/>
+    <arg name="odom_topic"   value="$(arg odom_topic)"/>
+    <arg name="odom_frame"   value="$(arg odom_frame)"/>
+    <arg name="base_frame"   value="$(arg base_frame)"/>
+    <arg name="publish_tf"   value="true"/>
+  </include>
+
+  <!-- 4) Discrete 45-deg controller -->
+  <include file="$(find omni_base_controller)/launch/discrete_45_motion_controller.launch">
+    <arg name="primitive_topic" value="$(arg primitive_topic)"/>
+    <arg name="cmd_vel_out"     value="$(arg cmd_vel_topic)"/>
+    <arg name="odom_topic"      value="$(arg odom_topic)"/>
+    <arg name="state_topic"     value="$(arg state_topic)"/>
+    <arg name="debug_topic"     value="$(arg debug_topic)"/>
+  </include>
+
+  <!-- 5) RViz -->
+  <node if="$(arg use_rviz)" pkg="rviz" type="rviz" name="rviz_discrete_45_demo"
+        args="-d $(arg rviz_config)" required="false" output="screen"/>
+</launch>

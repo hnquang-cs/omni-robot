@@ -91,6 +91,35 @@ rostopic pub /cmd_vel geometry_msgs/Twist '{linear: {x: 0.0, y: 0.0, z: 0.0}, an
 
 For mapping, use small loops and keep enough overlap between observations.
 
+## Discrete 45-Degree Mapping Mode
+
+`/cmd_vel` is a velocity command, not an angle command. If an experiment
+requires the robot to rotate only in exact relative `+45 deg` or `-45 deg`
+steps, run `omni_base_controller/discrete_45_motion_controller.py` and enable
+the safe mapping driver's discrete mode.
+
+The safe mapping driver remains backward compatible. By default it publishes
+Twist commands as before. With `--use-discrete-45`, it publishes:
+
+- `FORWARD`
+- `TURN_LEFT_45`
+- `TURN_RIGHT_45`
+- `STOP`
+
+to `/motion_primitive_cmd` and listens to `/motion_primitive_state`.
+
+Example:
+
+```bash
+roslaunch slam_benchmark slam_lidar_wide_obstacles_full.launch
+roslaunch omni_base_controller discrete_45_motion_controller.launch
+roscd slam_benchmark
+USE_DISCRETE_45=true ./scripts/run_safe_mapping_driver.sh wide_obstacles gmapping_lidar discrete45_test
+```
+
+In this mode the robot does not drive and turn at the same time, `linear.y`
+stays zero, and `linear.x` is never negative.
+
 ## Check SLAM
 ```bash
 rosrun slam_benchmark check_slam_topics.sh

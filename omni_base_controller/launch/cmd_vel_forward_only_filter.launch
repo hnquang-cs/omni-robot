@@ -1,0 +1,15 @@
+<launch>
+  <!-- Safety filter: /cmd_vel_raw from planner -> forward-only /cmd_vel for controller. -->
+  <arg name="cmd_vel_in" default="/cmd_vel_raw"/>
+  <arg name="cmd_vel_out" default="/cmd_vel"/>
+  <arg name="max_vel_x" default="0.20"/>
+  <arg name="max_vel_theta" default="0.25"/>
+  <node pkg="omni_base_controller" type="cmd_vel_forward_only_filter.py"
+        name="cmd_vel_forward_only_filter" output="screen">
+    <rosparam command="load" file="$(find omni_base_controller)/config/cmd_vel_forward_only_filter.yaml"/>
+    <param name="cmd_vel_in" value="$(arg cmd_vel_in)"/>
+    <param name="cmd_vel_out" value="$(arg cmd_vel_out)"/>
+    <param name="max_vel_x" value="$(arg max_vel_x)"/>
+    <param name="max_vel_theta" value="$(arg max_vel_theta)"/>
+  </node>
+</launch>

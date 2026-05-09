@@ -12,6 +12,12 @@ if [[ -z "${SCENARIO}" || -z "${ALGORITHM}" || -z "${REPETITION}" ]]; then
 fi
 
 PKG_PATH="$(rospack find slam_benchmark)"
+
+if [[ "${ALGORITHM}" == "gmapping_lidar" || "${ALGORITHM}" == "hector_lidar" ]]; then
+  echo "Stage 9 LiDAR algorithm requested; delegating to safe Stage 9 benchmark runner."
+  exec "${PKG_PATH}/scripts/run_stage9_lidar_benchmark.sh" --single "${SCENARIO}" "${ALGORITHM}" "${REPETITION}"
+fi
+
 OUT_DIR="${PKG_PATH}/results/stage8/raw/${SCENARIO}/${ALGORITHM}/rep_${REPETITION}"
 LOG_FILE="${OUT_DIR}/trial.log"
 STATUS_CSV="${OUT_DIR}/runtime_status.csv"

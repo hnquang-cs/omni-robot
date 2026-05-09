@@ -1,0 +1,10 @@
+<launch>
+  <!-- Stage 10 static map server. This launch intentionally does not start Gmapping. -->
+  <arg name="map_file" default="$(find nav_bringup)/maps/lidar_baseline.yaml"/>
+  <arg name="use_sim_time" default="true"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <node pkg="map_server" type="map_server" name="map_server" output="screen"
+        args="$(arg map_file)"/>
+</launch>

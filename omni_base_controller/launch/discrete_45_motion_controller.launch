@@ -1,0 +1,33 @@
+<launch>
+  <!--
+    Discrete 45-degree motion primitive controller (controller-only).
+
+    NOTE: This launch file ONLY starts the discrete_45_motion_controller node.
+    It does NOT start Gazebo, the robot model, gazebo_truth_odom, or RViz.
+    The controller needs a fresh /odom (nav_msgs/Odometry) to operate; otherwise
+    it will report state ERROR_NO_ODOM and refuse to turn.
+
+    For the full end-to-end demo (Gazebo + odom + controller + RViz), use:
+        roslaunch omni_base_controller discrete_45_demo.launch
+  -->
+
+  <arg name="input_mode"      default="primitive"/>
+  <arg name="primitive_topic" default="/motion_primitive_cmd"/>
+  <arg name="cmd_vel_out"     default="/cmd_vel"/>
+  <arg name="cmd_vel_raw"     default="/cmd_vel_raw"/>
+  <arg name="odom_topic"      default="/odom"/>
+  <arg name="state_topic"     default="/motion_primitive_state"/>
+  <arg name="debug_topic"     default="/motion_primitive_debug"/>
+
+  <node pkg="omni_base_controller" type="discrete_45_motion_controller.py"
+        name="discrete_45_motion_controller" output="screen">
+    <rosparam command="load" file="$(find omni_base_controller)/config/discrete_45_motion_controller.yaml"/>
+    <param name="input_mode"         value="$(arg input_mode)"/>
+    <param name="primitive_topic"    value="$(arg primitive_topic)"/>
+    <param name="cmd_vel_raw_topic"  value="$(arg cmd_vel_raw)"/>
+    <param name="cmd_vel_out_topic"  value="$(arg cmd_vel_out)"/>
+    <param name="odom_topic"         value="$(arg odom_topic)"/>
+    <param name="state_topic"        value="$(arg state_topic)"/>
+    <param name="debug_topic"        value="$(arg debug_topic)"/>
+  </node>
+</launch>

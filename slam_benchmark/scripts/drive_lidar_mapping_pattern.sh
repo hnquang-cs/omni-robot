@@ -54,8 +54,19 @@ case "${PATTERN}" in
     publish_cmd 0.0 "-${ANGULAR}" 10
     publish_cmd "${LINEAR}" 0.0 18
     ;;
+  narrow_turn)
+    for _ in 1 2 3; do
+      echo "short forward segment"
+      publish_cmd "${LINEAR}" 0.0 10
+      echo "slow narrow turn"
+      publish_cmd 0.0 "${ANGULAR}" 14
+      echo "short recovery segment"
+      publish_cmd "${LINEAR}" 0.0 7
+      publish_cmd 0.0 "-${ANGULAR}" 8
+    done
+    ;;
   *)
-    echo "FAIL: unknown pattern '${PATTERN}'. Use forward, rotate_slow, rectangle, or corridor."
+    echo "FAIL: unknown pattern '${PATTERN}'. Use forward, rotate_slow, rectangle, corridor, or narrow_turn."
     exit 2
     ;;
 esac

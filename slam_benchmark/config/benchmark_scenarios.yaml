@@ -44,6 +44,19 @@ scenarios:
       - /clock
       - /cmd_vel
       - /gazebo/model_states
+  wide_obstacles:
+    description: "Wide Gazebo world with 6-7 static box obstacles and wider mapping area."
+    world_name: "$(find robot_description)/worlds/test_arena_wide_obstacles.world"
+    world_launch: "robot_description gazebo_lidar_wide_obstacles.launch"
+    slam_launch: "slam_benchmark slam_lidar_wide_obstacles_full.launch"
+    duration_sec: 150
+    drive_pattern: "wide_obstacles_safe"
+    repetitions: 3
+    expected_topics:
+      - /lidar/scan
+      - /odom
+      - /map
+      - /gazebo/model_states
 
 notes:
-  world_limitation: "All Stage 8 scenarios currently reuse test_arena.world; the benchmark varies trajectory pattern rather than Gazebo world geometry."
+  world_limitation: "Stage 8 scenarios reuse test_arena.world; Stage 9 wide_obstacles uses a dedicated wider Gazebo world with static box obstacles."

@@ -1,0 +1,21 @@
+# Shared costmap settings for LiDAR navigation.
+footprint: [[0.26, 0.20], [0.26, -0.20], [-0.26, -0.20], [-0.26, 0.20]]
+footprint_padding: 0.02
+transform_tolerance: 0.5
+map_type: costmap
+
+obstacle_range: 6.0
+raytrace_range: 8.0
+inflation_radius: 0.35
+cost_scaling_factor: 4.0
+
+observation_sources: lidar_scan
+lidar_scan:
+  data_type: LaserScan
+  topic: /lidar/scan
+  sensor_frame: lidar_link
+  marking: true
+  clearing: true
+  min_obstacle_height: -0.10
+  max_obstacle_height: 0.60
+  expected_update_rate: 0.0

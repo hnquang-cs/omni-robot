@@ -120,3 +120,20 @@ xvfb-run -a roslaunch robot_description gazebo_sim.launch gui:=false
 - The horizontal FOV is 360 degrees with 720 samples at 10 Hz.
 - Range limits are `0.15 m` to `10.0 m`, with small Gaussian noise for a less ideal scan.
 - Stereo cameras and the existing stereo pipeline are intentionally kept. Stage 9 adds LiDAR as the main SLAM/navigation baseline sensor and leaves stereo-depth for comparison and later integration research.
+## Stage 10 Navigation Fixed Arena
+
+`worlds/test_arena_nav_fixed.world` is a non-destructive copy of `test_arena.world` for Stage 10 navigation tests.
+
+It adds one static wall model:
+
+- Name: `missing_wall_stage10`
+- Pose: `x=-0.5, y=0.0, z=0.75, roll=0, pitch=0, yaw=0`
+- Box size: `x=0.12, y=3.0, z=1.5`
+
+The wall closes the rear side of the corridor while leaving the robot spawn at `x=0.0, y=0.0` clear.
+
+Launch it with:
+
+```bash
+roslaunch robot_description gazebo_lidar_nav_fixed.launch
+```

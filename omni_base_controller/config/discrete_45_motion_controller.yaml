@@ -1,0 +1,27 @@
+input_mode: primitive
+primitive_topic: /motion_primitive_cmd
+cmd_vel_raw_topic: /cmd_vel_raw
+cmd_vel_out_topic: /cmd_vel
+odom_topic: /odom
+state_topic: /motion_primitive_state
+debug_topic: /motion_primitive_debug
+
+publish_rate: 30.0
+odom_timeout_sec: 1.0
+cmd_timeout: 0.5
+
+forward_speed: 0.25
+max_forward_speed: 0.35
+
+turn_speed: 0.25
+max_turn_speed: 0.35
+
+turn_angle_deg: 45.0
+yaw_tolerance_deg: 2.0
+turn_timeout_sec: 8.0
+
+allow_reverse: false
+allow_lateral: false
+allow_drive_and_turn_same_time: false
+allow_continuous_forward: true
+stop_after_turn: true

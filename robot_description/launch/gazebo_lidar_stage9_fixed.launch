@@ -1,0 +1,36 @@
+<launch>
+  <!-- Stage 9 fixed arena: LiDAR robot with closed rear wall and safe spawn yaw. -->
+  <arg name="use_sim_time" default="true"/>
+  <arg name="paused" default="false"/>
+  <arg name="gui" default="true"/>
+  <arg name="world_name" default="$(find robot_description)/worlds/test_arena_stage9_fixed.world"/>
+  <arg name="robot_x" default="0.0"/>
+  <arg name="robot_y" default="0.0"/>
+  <arg name="robot_z" default="0.02"/>
+  <arg name="robot_yaw" default="1.5708"/>
+  <arg unless="$(arg paused)" name="paused_arg" value=""/>
+  <arg if="$(arg paused)" name="paused_arg" value="-u"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+  <param name="gazebo/enable_ros_network" value="true"/>
+
+  <node pkg="gazebo_ros" type="gzserver" name="gazebo" output="screen"
+        args="$(arg paused_arg) -e ode $(arg world_name)">
+    <env name="LD_LIBRARY_PATH" value="/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/noetic/lib:$(optenv LD_LIBRARY_PATH)"/>
+    <env name="GAZEBO_PLUGIN_PATH" value="/opt/ros/noetic/lib:$(optenv GAZEBO_PLUGIN_PATH)"/>
+  </node>
+
+  <node if="$(arg gui)" pkg="gazebo_ros" type="gzclient" name="gazebo_gui" output="screen">
+    <env name="LD_LIBRARY_PATH" value="/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/noetic/lib:$(optenv LD_LIBRARY_PATH)"/>
+    <env name="GAZEBO_PLUGIN_PATH" value="/opt/ros/noetic/lib:$(optenv GAZEBO_PLUGIN_PATH)"/>
+  </node>
+
+  <param name="robot_description" command="$(find xacro)/xacro $(find robot_description)/urdf/omni_robot.urdf.xacro"/>
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen">
+    <param name="publish_frequency" value="30.0"/>
+  </node>
+
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_omni_robot" output="screen"
+        args="-urdf -param robot_description -model omni_robot -x $(arg robot_x) -y $(arg robot_y) -z $(arg robot_z) -Y $(arg robot_yaw)"/>
+</launch>

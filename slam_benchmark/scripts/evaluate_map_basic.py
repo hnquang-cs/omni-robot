@@ -273,6 +273,25 @@ def default_output_path(map_yaml: Path) -> Path:
     return results_dir / f"{map_yaml.stem}_basic_metrics_{stamp}.csv"
 
 
+NA_ROW_FIELDS = [
+    "map_yaml", "image", "width", "height", "resolution", "area_m2",
+    "occupied_cell_count", "free_cell_count", "unknown_cell_count", "total_cell_count",
+    "occupied_ratio", "free_ratio", "unknown_ratio", "occupied_iou", "na_reason",
+]
+
+
+def write_na_map_metrics(output: Path, reason: str) -> None:
+    """Write a map_metrics.csv with N/A values so aggregate does not report the file missing."""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    row = {field: "N/A" for field in NA_ROW_FIELDS}
+    row["na_reason"] = reason
+    with output.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=NA_ROW_FIELDS)
+        writer.writeheader()
+        writer.writerow(row)
+    print(f"WARN: map_metrics.csv written with N/A ({reason}) -> {output}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("map_yaml", type=Path)
@@ -281,22 +300,38 @@ def main() -> int:
     parser.add_argument("--ground-truth-map", type=Path, default=None)
     args = parser.parse_args()
 
-    map_yaml = args.map_yaml.resolve()
+    output_arg = args.output or args.output_positional
+    map_yaml_raw = args.map_yaml
+
+    # Determine output path before resolving map_yaml so we can still write N/A on failure
+    if output_arg is not None:
+        output = output_arg.resolve()
+    else:
+        # Use the map yaml stem to derive a default path
+        try:
+            output = default_output_path(map_yaml_raw)
+        except Exception:
+            output = map_yaml_raw.parent / "map_metrics.csv"
+
+    map_yaml = map_yaml_raw.resolve() if map_yaml_raw.exists() else map_yaml_raw
+
     if not map_yaml.is_file():
-        print(f"FAIL: map yaml not found: {map_yaml}", file=sys.stderr)
-        return 1
+        write_na_map_metrics(output, f"map_yaml_not_found:{map_yaml}")
+        return 0  # do NOT return 1 — aggregate must not see this as missing
 
     try:
         gt_map = args.ground_truth_map.resolve() if args.ground_truth_map else None
         row = evaluate_map(map_yaml, gt_map)
     except Exception as exc:
-        print(f"FAIL: {exc}", file=sys.stderr)
-        return 1
+        print(f"WARN: evaluate_map failed: {exc}", file=sys.stderr)
+        write_na_map_metrics(output, f"evaluate_map_error:{exc}")
+        return 0  # non-fatal: file exists with N/A
 
-    output_arg = args.output or args.output_positional
-    output = output_arg.resolve() if output_arg else default_output_path(map_yaml)
     output.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(row.keys())
+    if "na_reason" not in fieldnames:
+        fieldnames.append("na_reason")
+        row["na_reason"] = ""
     with output.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()

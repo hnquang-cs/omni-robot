@@ -29,6 +29,10 @@ class GazeboModelCmdVel:
         self.max_angular_velocity = self._get_positive_param("max_angular_velocity", 0.8)
         self.service_name = self._get_param("set_model_state_service", "/gazebo/set_model_state")
         self.model_states_topic = self._get_param("model_states_topic", "/gazebo/model_states")
+        # Forward-only safety: reject reverse and lateral motion at the integrator.
+        self.allow_reverse = bool(self._get_param("allow_reverse", False))
+        self.allow_lateral = bool(self._get_param("allow_lateral", False))
+        self.warn_on_drive_and_turn = bool(self._get_param("warn_on_drive_and_turn", True))
 
         self.lock = threading.RLock()
         self.current_cmd = Twist()
@@ -136,9 +140,9 @@ class GazeboModelCmdVel:
             if dt <= 0.0 or dt > 1.0:
                 return
 
-            vx, vy, wz = self._active_command(now)
-            world_vx = math.cos(self.yaw) * vx - math.sin(self.yaw) * vy
-            world_vy = math.sin(self.yaw) * vx + math.cos(self.yaw) * vy
+            vx, _vy, wz = self._active_command(now)
+            world_vx = math.cos(self.yaw) * vx
+            world_vy = math.sin(self.yaw) * vx
 
             self.x += world_vx * dt
             self.y += world_vy * dt
@@ -155,15 +159,27 @@ class GazeboModelCmdVel:
             return 0.0, 0.0, 0.0
 
         vx = self.current_cmd.linear.x
-        vy = self.current_cmd.linear.y
+        vy = self.current_cmd.linear.y if self.allow_lateral else 0.0
         wz = self.current_cmd.angular.z
 
-        speed = math.hypot(vx, vy)
-        if speed > self.max_linear_velocity:
-            scale = self.max_linear_velocity / speed
-            vx *= scale
-            vy *= scale
+        if not self.allow_reverse and vx < 0.0:
+            vx = 0.0
+
+        if vx > self.max_linear_velocity:
+            vx = self.max_linear_velocity
+        elif vx < -self.max_linear_velocity:
+            vx = -self.max_linear_velocity
+
         wz = max(-self.max_angular_velocity, min(self.max_angular_velocity, wz))
+
+        if self.warn_on_drive_and_turn and abs(vx) > 1e-5 and abs(wz) > 1e-5:
+            rospy.logwarn_throttle(
+                2.0,
+                "[gazebo_model_cmd_vel] received drive-and-turn cmd vx=%.3f wz=%.3f "
+                "(discrete demo expects pure forward or pure rotation)",
+                vx,
+                wz,
+            )
         return vx, vy, wz
 
     def _build_set_state_request(self, world_vx: float, world_vy: float, wz: float) -> SetModelStateRequest:

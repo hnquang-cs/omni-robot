@@ -1,0 +1,21 @@
+# Shared low-inflation debug costmap settings for Stage 10 goal-validity tests.
+footprint: [[0.18, 0.14], [0.18, -0.14], [-0.18, -0.14], [-0.18, 0.14]]
+footprint_padding: 0.01
+transform_tolerance: 0.5
+map_type: costmap
+
+obstacle_range: 4.0
+raytrace_range: 6.0
+inflation_radius: 0.15
+cost_scaling_factor: 6.0
+
+observation_sources: lidar
+lidar:
+  data_type: LaserScan
+  topic: /lidar/scan
+  sensor_frame: lidar_link
+  marking: true
+  clearing: true
+  min_obstacle_height: -0.10
+  max_obstacle_height: 0.60
+  expected_update_rate: 0.0

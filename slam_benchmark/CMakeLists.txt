@@ -22,10 +22,18 @@ install(PROGRAMS
   scripts/check_stage7_system.sh
   scripts/compare_map_csv.py
   scripts/aggregate_stage8_results.py
+  scripts/aggregate_stage9_results.py
   scripts/check_stage8_dependencies.sh
   scripts/check_lidar_stage9.sh
+  scripts/check_cmd_vel_activity.py
+  scripts/acceptance_test_gmapping_wide_obstacles.sh
+  scripts/acceptance_test_stage9_safe_mapping.sh
   scripts/compute_ate_rpe.sh
   scripts/convert_trajectory_to_tum.py
+  scripts/create_gmapping_wide_obstacles_map.sh
+  scripts/create_wide_safe_map.sh
+  scripts/debug_stage9_benchmark_wrapper.sh
+  scripts/diagnose_stage9_collision.sh
   scripts/drive_mapping_pattern.sh
   scripts/drive_lidar_mapping_pattern.sh
   scripts/evaluate_map_basic.py
@@ -34,20 +42,26 @@ install(PROGRAMS
   scripts/generate_latex_tables.py
   scripts/play_bag_gmapping.sh
   scripts/plot_stage8_results.py
+  scripts/plot_stage9_results.py
   scripts/record_stage7_bag.sh
   scripts/record_lidar_bag.sh
   scripts/record_slam_bag.sh
+  scripts/remap_lidar_wide_area.sh
   scripts/replay_with_gmapping.sh
   scripts/replay_with_hector.sh
   scripts/run_benchmark.sh
   scripts/run_gmapping_profile.sh
   scripts/run_hector.sh
+  scripts/run_safe_mapping_driver.sh
   scripts/run_single_slam_trial.sh
   scripts/run_stage8_benchmark.sh
   scripts/run_stage9_lidar_benchmark.sh
+  scripts/safe_mapping_driver.py
   scripts/save_lidar_map.sh
   scripts/save_map_with_prefix.sh
   scripts/save_map.sh
+  scripts/verify_wide_obstacles_map.py
+  scripts/verify_wide_obstacles_world.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

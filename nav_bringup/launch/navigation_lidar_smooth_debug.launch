@@ -1,0 +1,67 @@
+<launch>
+  <!-- Stage 10 smooth-motion debug profile. Uses map_server + AMCL + move_base, never Gmapping. -->
+  <arg name="use_smooth_teb" default="true"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="map_file" default="$(find nav_bringup)/maps/lidar_baseline_wide.yaml"/>
+  <arg name="scan_topic" default="/lidar/scan"/>
+  <arg name="use_rviz" default="true"/>
+  <arg name="gazebo_gui" default="true"/>
+  <arg name="use_cmd_vel_limiter" default="true"/>
+  <arg name="model_name" default="omni_robot"/>
+  <arg name="base_frame" default="base_footprint"/>
+  <arg name="odom_frame" default="odom"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <include file="$(find robot_description)/launch/gazebo_lidar_nav_fixed.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="gui" value="$(arg gazebo_gui)"/>
+  </include>
+
+  <include file="$(find omni_base_controller)/launch/gazebo_model_controller.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="model_name" value="$(arg model_name)"/>
+    <arg name="cmd_vel_topic" value="/cmd_vel"/>
+  </include>
+
+  <node if="$(arg use_cmd_vel_limiter)" pkg="omni_base_controller" type="cmd_vel_limiter.py"
+        name="cmd_vel_limiter" output="screen">
+    <rosparam command="load" file="$(find omni_base_controller)/config/cmd_vel_limiter.yaml"/>
+  </node>
+
+  <include file="$(find omni_base_controller)/launch/gazebo_truth_odom.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="model_name" value="$(arg model_name)"/>
+    <arg name="odom_topic" value="/odom"/>
+    <arg name="odom_frame" value="$(arg odom_frame)"/>
+    <arg name="base_frame" value="$(arg base_frame)"/>
+    <arg name="publish_tf" value="true"/>
+  </include>
+
+  <include file="$(find nav_bringup)/launch/navigation_lidar.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="map_file" value="$(arg map_file)"/>
+  </include>
+
+  <include file="$(find nav_bringup)/launch/amcl_lidar.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="scan_topic" value="$(arg scan_topic)"/>
+    <arg name="base_frame" value="$(arg base_frame)"/>
+    <arg name="odom_frame" value="$(arg odom_frame)"/>
+  </include>
+
+  <include if="$(arg use_smooth_teb)" file="$(find nav_bringup)/launch/move_base_teb_smooth.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="scan_topic" value="$(arg scan_topic)"/>
+    <arg name="cmd_vel_topic" value="/cmd_vel_raw"/>
+  </include>
+
+  <include unless="$(arg use_smooth_teb)" file="$(find nav_bringup)/launch/move_base_teb.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="scan_topic" value="$(arg scan_topic)"/>
+    <arg name="cmd_vel_topic" value="/cmd_vel"/>
+  </include>
+
+  <node if="$(arg use_rviz)" pkg="rviz" type="rviz" name="rviz_navigation_smooth_debug"
+        args="-d $(find nav_bringup)/rviz/navigation_goal_debug.rviz" required="false"/>
+</launch>

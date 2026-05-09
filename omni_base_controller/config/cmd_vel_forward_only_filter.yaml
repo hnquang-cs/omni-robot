@@ -1,0 +1,10 @@
+cmd_vel_in: /cmd_vel_raw
+cmd_vel_out: /cmd_vel
+publish_rate: 30.0
+cmd_timeout: 0.5
+max_vel_x: 0.20
+max_vel_theta: 0.25
+max_acc_x: 0.25
+max_acc_theta: 0.35
+force_no_reverse: true
+force_zero_y: true
