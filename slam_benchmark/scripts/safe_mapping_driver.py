@@ -44,8 +44,8 @@ class SafeMappingDriver:
         self.use_discrete_45 = args.use_discrete_45
         self.primitive_topic = args.primitive_topic
         self.primitive_state_topic = args.primitive_state_topic
-        self.forward_speed = clamp(args.forward_speed, 0.0, 0.12)
-        self.rotate_speed = abs(clamp(args.rotate_speed, 0.0, 0.25))
+        self.forward_speed = clamp(args.forward_speed, 0.0, 0.30)
+        self.rotate_speed = abs(clamp(args.rotate_speed, 0.0, 0.30))
         self.safety_stop_distance = args.safety_stop_distance
         self.critical_stop_distance = args.critical_stop_distance
         self.front_angle_rad = math.radians(args.front_angle_deg)

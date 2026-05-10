@@ -5,5 +5,5 @@ set_model_state_service: /gazebo/set_model_state
 publish_rate: 30.0
 cmd_timeout: 0.5
 use_sim_time: true
-max_linear_velocity: 0.35
+max_linear_velocity: 0.45
 max_angular_velocity: 0.8

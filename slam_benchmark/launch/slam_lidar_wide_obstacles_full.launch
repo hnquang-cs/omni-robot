@@ -34,7 +34,7 @@
   <include if="$(arg use_cmd_vel_safety_filter)" file="$(find omni_base_controller)/launch/cmd_vel_forward_only_filter.launch">
     <arg name="cmd_vel_in" value="/cmd_vel_raw"/>
     <arg name="cmd_vel_out" value="/cmd_vel"/>
-    <arg name="max_vel_x" value="0.12"/>
+    <arg name="max_vel_x" value="0.45"/>
     <arg name="max_vel_theta" value="0.25"/>
   </include>
 

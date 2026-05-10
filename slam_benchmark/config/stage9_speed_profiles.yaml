@@ -1,0 +1,26 @@
+profiles:
+  safe:
+    forward_speed: 0.10
+    rotate_speed: 0.15
+    max_forward_speed: 0.15
+    max_rotate_speed: 0.25
+    safety_stop_distance: 0.80
+    critical_stop_distance: 0.35
+
+  normal:
+    forward_speed: 0.22
+    rotate_speed: 0.35
+    max_forward_speed: 0.30
+    max_rotate_speed: 0.45
+    safety_stop_distance: 0.90
+    critical_stop_distance: 0.40
+
+  fast:
+    forward_speed: 0.35
+    rotate_speed: 0.55
+    max_forward_speed: 0.45
+    max_rotate_speed: 0.65
+    safety_stop_distance: 1.10
+    critical_stop_distance: 0.50
+
+default_profile: normal

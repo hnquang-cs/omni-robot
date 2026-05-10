@@ -2,7 +2,7 @@
   <!-- Safety filter: /cmd_vel_raw from planner -> forward-only /cmd_vel for controller. -->
   <arg name="cmd_vel_in" default="/cmd_vel_raw"/>
   <arg name="cmd_vel_out" default="/cmd_vel"/>
-  <arg name="max_vel_x" default="0.20"/>
+  <arg name="max_vel_x" default="0.45"/>
   <arg name="max_vel_theta" default="0.25"/>
   <node pkg="omni_base_controller" type="cmd_vel_forward_only_filter.py"
         name="cmd_vel_forward_only_filter" output="screen">
