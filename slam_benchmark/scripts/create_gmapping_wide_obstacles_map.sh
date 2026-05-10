@@ -11,7 +11,7 @@ LOG_FILE="${LOG_DIR}/create_gmapping_wide_obstacles_map.log"
 SCENARIO="${SCENARIO:-wide_obstacles}"
 ALGORITHM="${ALGORITHM:-gmapping_lidar}"
 REP="${REP:-final}"
-DURATION="${DURATION:-150}"
+DURATION="${DURATION:-600}"
 PATTERN="${PATTERN:-wide_obstacles_safe}"
 LAUNCH_SIM="${LAUNCH_SIM:-auto}"
 CMD_TOPIC="${CMD_TOPIC:-auto}"
@@ -89,8 +89,28 @@ done
 
 DRIVER_CMD_TOPIC="$(select_cmd_topic)"
 log "running safe_mapping_driver scenario=${SCENARIO} rep=${REP} cmd_topic=${DRIVER_CMD_TOPIC}"
+set +e
 DURATION="${DURATION}" PATTERN="${PATTERN}" CMD_TOPIC="${DRIVER_CMD_TOPIC}" \
   "${PKG_PATH}/scripts/run_safe_mapping_driver.sh" "${SCENARIO}" "${ALGORITHM}" "${REP}"
+DRIVER_STATUS=$?
+set -e
+
+STATUS_FILE="${PKG_PATH}/results/stage9/raw/${SCENARIO}/${ALGORITHM}/rep_${REP}/safe_driver_status.txt"
+if [[ -s "${STATUS_FILE}" ]]; then
+  STOP_REASON="$(awk -F= '$1=="stop_reason"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  [[ -n "${STOP_REASON}" ]] || STOP_REASON="$(awk -F= '$1=="reason"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  DRIVER_ELAPSED="$(awk -F= '$1=="elapsed"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  EXPLORED_RATIO="$(awk -F= '$1=="explored_ratio"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  UNKNOWN_RATIO="$(awk -F= '$1=="unknown_ratio"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  log "safe_driver_exit=${DRIVER_STATUS}"
+  log "stop_reason=${STOP_REASON:-unknown}"
+  log "elapsed=${DRIVER_ELAPSED:-unknown}"
+  log "explored_ratio=${EXPLORED_RATIO:-unknown}"
+  log "unknown_ratio=${UNKNOWN_RATIO:-unknown}"
+else
+  log "WARN: missing safe driver status at ${STATUS_FILE}"
+  log "safe_driver_exit=${DRIVER_STATUS}"
+fi
 
 log "publishing zero velocity"
 publish_zero
@@ -121,3 +141,8 @@ fi
 log "PASS: final_map=${FINAL_PREFIX}.yaml"
 log "PASS: metrics=${MAP_DIR}/gmapping_lidar_wide_obstacles_final_metrics.csv"
 log "PASS: log=${LOG_FILE}"
+
+if [[ "${DRIVER_STATUS}" -ne 0 ]]; then
+  log "FAIL: safe_mapping_driver exited with ${DRIVER_STATUS}"
+  exit "${DRIVER_STATUS}"
+fi

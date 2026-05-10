@@ -89,7 +89,7 @@ scenario_duration() {
     corridor_static) echo 45 ;;
     open_room_obstacles) echo 120 ;;
     narrow_turn) echo 105 ;;
-    wide_obstacles) echo 150 ;;
+    wide_obstacles) echo 240 ;;
     *) echo 90 ;;
   esac
 }
@@ -589,6 +589,21 @@ run_trial() {
     driver_status=1
   fi
   log_line "${trial_log}" "safe_driver_exit=${driver_status}"
+  local safe_status_file="${trial_dir}/safe_driver_status.txt"
+  local stop_reason="" driver_elapsed="" explored_ratio="" unknown_ratio=""
+  if [[ -s "${safe_status_file}" ]]; then
+    stop_reason="$(awk -F= '$1=="stop_reason"{print $2}' "${safe_status_file}" | tail -n1)"
+    [[ -n "${stop_reason}" ]] || stop_reason="$(awk -F= '$1=="reason"{print $2}' "${safe_status_file}" | tail -n1)"
+    driver_elapsed="$(awk -F= '$1=="elapsed"{print $2}' "${safe_status_file}" | tail -n1)"
+    explored_ratio="$(awk -F= '$1=="explored_ratio"{print $2}' "${safe_status_file}" | tail -n1)"
+    unknown_ratio="$(awk -F= '$1=="unknown_ratio"{print $2}' "${safe_status_file}" | tail -n1)"
+    log_line "${trial_log}" "stop_reason=${stop_reason:-unknown}"
+    log_line "${trial_log}" "elapsed=${driver_elapsed:-unknown}"
+    log_line "${trial_log}" "explored_ratio=${explored_ratio:-unknown}"
+    log_line "${trial_log}" "unknown_ratio=${unknown_ratio:-unknown}"
+  else
+    log_line "${trial_log}" "stop_reason=missing_safe_driver_status"
+  fi
 
   # ── stop & save bag ──────────────────────────────────────────────────────
   publish_zero; sleep 2
@@ -677,8 +692,11 @@ run_trial() {
 
   if [[ -s "${trial_dir}/safe_driver_status.txt" ]]; then
     local reason
-    reason="$(awk -F= '$1=="reason"{print $2}' "${trial_dir}/safe_driver_status.txt" | tail -n1)"
-    [[ -z "${reason}" || "${reason}" == "duration_complete" ]] || notes+="${reason};"
+    reason="${stop_reason}"
+    [[ -n "${reason}" ]] || reason="$(awk -F= '$1=="reason"{print $2}' "${trial_dir}/safe_driver_status.txt" | tail -n1)"
+    if [[ -n "${reason}" && "${reason}" != DONE_duration && "${reason}" != DONE_coverage ]]; then
+      notes+="${reason};"
+    fi
   else
     notes+="missing_safe_driver_status;"
   fi

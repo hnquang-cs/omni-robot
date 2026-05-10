@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """LiDAR-gated mapping driver for repeatable Stage 9 SLAM trials.
 
-Conservative state machine: FORWARD -> STOP -> ROTATE_LEFT/RIGHT -> FORWARD.
-Only fails with blocked_by_obstacle when truly stuck (global_min < critical for
-too long, or rotate_attempts > max_rotate_attempts).
+Stage 9 completion is decided by fixed duration/coverage/safety/stuck
+conditions. A blocked front sector is a recovery condition, not a completion
+condition: the robot stops briefly, rotates/searches, escapes if needed, and
+then tries forward motion again.
 """
 
 import argparse
@@ -19,6 +20,7 @@ from typing import List, Optional, Tuple
 import rospy
 import rospkg
 from geometry_msgs.msg import Twist
+from nav_msgs.msg import OccupancyGrid
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
 
@@ -26,10 +28,13 @@ from std_msgs.msg import String
 class State(Enum):
     IDLE = "IDLE"
     FORWARD = "FORWARD"
-    ROTATE_LEFT = "ROTATE_LEFT"
-    ROTATE_RIGHT = "ROTATE_RIGHT"
-    STOP_ONLY = "STOP_ONLY"
+    SLOW_FORWARD = "SLOW_FORWARD"
+    STOP_AND_SCAN = "STOP_AND_SCAN"
+    ROTATE_SEARCH_LEFT = "ROTATE_SEARCH_LEFT"
+    ROTATE_SEARCH_RIGHT = "ROTATE_SEARCH_RIGHT"
+    ESCAPE_ROTATE = "ESCAPE_ROTATE"
     DONE = "DONE"
+    ERROR = "ERROR"
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -44,26 +49,40 @@ class SafeMappingDriver:
         self.use_discrete_45 = args.use_discrete_45
         self.primitive_topic = args.primitive_topic
         self.primitive_state_topic = args.primitive_state_topic
-        self.forward_speed = clamp(args.forward_speed, 0.0, 0.30)
-        self.rotate_speed = abs(clamp(args.rotate_speed, 0.0, 0.30))
+        self.forward_speed = clamp(args.forward_speed, 0.0, 0.45)
+        self.rotate_speed = abs(clamp(args.rotate_speed, 0.0, 0.45))
         self.safety_stop_distance = args.safety_stop_distance
-        self.critical_stop_distance = args.critical_stop_distance
+        self.min_mapping_duration_sec = 120.0
+        self.max_duration_sec = 600.0
+        self.explored_ratio_threshold = 0.30
+        self.unknown_ratio_threshold = 0.50
+        self.critical_stop_distance = 0.30
+        self.collision_risk_duration_sec = 2.0
+        self.max_stuck_count = 12
         self.front_angle_rad = math.radians(args.front_angle_deg)
         self.scan_timeout = args.scan_timeout
         self.max_rotate_segment = args.max_rotate_segment
-        self.max_rotate_attempts = args.max_rotate_attempts
         self.blocked_timeout = args.blocked_timeout
+        self.stop_and_scan_duration = 0.5
+        self.escape_rotate_duration = max(2.0, min(6.0, args.max_rotate_segment))
 
         self.latest_scan: Optional[LaserScan] = None
         self.latest_scan_time: Optional[rospy.Time] = None
+        self.latest_map: Optional[OccupancyGrid] = None
+        self.explored_ratio: Optional[float] = None
+        self.unknown_ratio: Optional[float] = None
+        self.coverage_available = False
         self.state = State.IDLE
         self.state_started = time.monotonic()
         self.rotate_attempts = 0
+        self.stuck_count = 0
         self.blocked_since: Optional[float] = None
         self.critical_since: Optional[float] = None
         self.exit_code = 0
-        self.reason = "completed"
+        self.stop_reason = ""
+        self.reason = ""
         self.shutdown_requested = False
+        self.start_time = time.monotonic()
         self.latest_primitive_state: Optional[str] = None
         self.latest_primitive_state_time: Optional[float] = None
         self.discrete_started = time.monotonic()
@@ -73,10 +92,25 @@ class SafeMappingDriver:
         os.makedirs(self.log_dir, exist_ok=True)
         self.csv_path = os.path.join(self.log_dir, "safe_driver_log.csv")
         self.status_path = os.path.join(self.log_dir, "safe_driver_status.txt")
+        if os.path.exists(self.status_path):
+            os.remove(self.status_path)
         self.csv_file = open(self.csv_path, "w", newline="")
         self.csv_writer = csv.writer(self.csv_file)
         self.csv_writer.writerow(
-            ["timestamp", "state", "front_min", "global_min", "cmd_x", "cmd_z", "event"]
+            [
+                "timestamp",
+                "elapsed",
+                "state",
+                "event",
+                "front_min",
+                "global_min",
+                "cmd_x",
+                "cmd_z",
+                "stuck_count",
+                "explored_ratio",
+                "unknown_ratio",
+                "stop_reason",
+            ]
         )
         self.csv_file.flush()
 
@@ -85,6 +119,7 @@ class SafeMappingDriver:
         self.sub = rospy.Subscriber(
             self.scan_topic, LaserScan, self.scan_callback, queue_size=1
         )
+        self.map_sub = rospy.Subscriber("/map", OccupancyGrid, self.map_callback, queue_size=1)
         self.primitive_state_sub = rospy.Subscriber(
             self.primitive_state_topic,
             String,
@@ -103,6 +138,20 @@ class SafeMappingDriver:
         self.latest_scan = msg
         self.latest_scan_time = rospy.Time.now()
 
+    def map_callback(self, msg: OccupancyGrid) -> None:
+        self.latest_map = msg
+        total = len(msg.data)
+        if total <= 0:
+            self.coverage_available = False
+            self.explored_ratio = None
+            self.unknown_ratio = None
+            return
+        unknown = sum(1 for cell in msg.data if cell < 0)
+        explored = total - unknown
+        self.explored_ratio = explored / float(total)
+        self.unknown_ratio = unknown / float(total)
+        self.coverage_available = True
+
     def primitive_state_callback(self, msg: String) -> None:
         self.latest_primitive_state = msg.data
         self.latest_primitive_state_time = time.monotonic()
@@ -110,12 +159,14 @@ class SafeMappingDriver:
     def run(self) -> int:
         rospy.loginfo(
             "[safe_mapping_driver] scenario=%s algorithm=%s rep=%s pattern=%s "
-            "duration=%.1fs fwd=%.3f rot=%.3f safety=%.2f critical=%.2f cmd=%s discrete45=%s",
+            "min_duration=%.1fs max_duration=%.1fs fwd=%.3f rot=%.3f safety=%.2f "
+            "critical=%.2f cmd=%s discrete45=%s",
             self.args.scenario,
             self.args.algorithm,
             self.args.rep,
             self.args.pattern,
-            self.args.duration,
+            self.min_mapping_duration_sec,
+            self.max_duration_sec,
             self.forward_speed,
             self.rotate_speed,
             self.safety_stop_distance,
@@ -123,9 +174,9 @@ class SafeMappingDriver:
             self.cmd_topic,
             self.use_discrete_45,
         )
-        start = time.monotonic()
-        self.state = State.ROTATE_LEFT if self.args.pattern == "rotate_scan" else State.FORWARD
-        self.state_started = start
+        self.start_time = time.monotonic()
+        self.state = State.ROTATE_SEARCH_LEFT if self.args.pattern == "rotate_scan" else State.FORWARD
+        self.state_started = self.start_time
         rate = rospy.Rate(10)
 
         # Wait for first scan
@@ -138,16 +189,10 @@ class SafeMappingDriver:
             self.publish(Twist())
             rate.sleep()
         if self.latest_scan is None:
-            self.state = State.DONE
-            self.reason = "scan_timeout"
-            self.exit_code = 5
+            self.finish("ERROR_no_scan", 5, "initial_scan_timeout")
 
         while not rospy.is_shutdown() and not self.shutdown_requested:
             now = time.monotonic()
-            if now - start >= self.args.duration:
-                self.reason = "duration_complete"
-                break
-
             front_min, global_min, left_min, right_min = self.scan_ranges()
             event = ""
             cmd = self.select_command(now, front_min, global_min, left_min, right_min)
@@ -157,16 +202,31 @@ class SafeMappingDriver:
             self.publish(cmd)
             self.log_sample(front_min, global_min, cmd, event)
 
-            if self.state == State.DONE:
+            if self.state in (State.DONE, State.ERROR):
                 break
             rate.sleep()
 
+        if self.shutdown_requested and not self.stop_reason:
+            self.finish("ERROR_unknown", 1, "shutdown_requested")
         self.stop_robot(repeats=8)
         self.write_status()
         self.csv_file.close()
+        print(f"[SAFE_MAPPING] stop_reason={self.stop_reason}", flush=True)
+        print(f"[SAFE_MAPPING] elapsed={self.elapsed():.2f}", flush=True)
+        print(
+            f"[SAFE_MAPPING] explored_ratio={self.format_ratio(self.explored_ratio)}",
+            flush=True,
+        )
+        print(
+            f"[SAFE_MAPPING] unknown_ratio={self.format_ratio(self.unknown_ratio)}",
+            flush=True,
+        )
         rospy.loginfo(
-            "[safe_mapping_driver] finished reason=%s exit_code=%d",
-            self.reason,
+            "[safe_mapping_driver] finished stop_reason=%s elapsed=%.2f explored_ratio=%s unknown_ratio=%s exit_code=%d",
+            self.stop_reason,
+            self.elapsed(),
+            self.format_ratio(self.explored_ratio),
+            self.format_ratio(self.unknown_ratio),
             self.exit_code,
         )
         return self.exit_code
@@ -184,160 +244,181 @@ class SafeMappingDriver:
     ) -> Twist:
         self._last_event = ""
         cmd = Twist()
+        elapsed = now - self.start_time
 
         # Stale scan
         if not self.scan_is_fresh():
-            self.state = State.DONE
-            self.reason = "scan_timeout"
-            self.exit_code = 5
-            self._last_event = "scan_timeout"
+            self.finish("ERROR_no_scan", 5, "scan_timeout")
             return cmd
 
-        # Track critical proximity — only fail if stuck there for a while
-        side_critical = max(0.20, self.critical_stop_distance - 0.05)
-        if global_min < side_critical:
+        if global_min < self.critical_stop_distance:
             if self.critical_since is None:
                 self.critical_since = now
                 self._last_event = "critical_proximity_start"
-            elif now - self.critical_since > 5.0:
-                # Truly pinned — abort
-                self.state = State.DONE
-                self.reason = "collision_risk"
-                self.exit_code = 3
-                self._last_event = "collision_risk_abort"
+            elif now - self.critical_since > self.collision_risk_duration_sec:
+                self.finish("ERROR_collision_risk", 3, "collision_risk_abort")
                 return cmd
         else:
             if self.critical_since is not None:
                 self._last_event = "critical_proximity_cleared"
             self.critical_since = None
 
+        if elapsed >= self.max_duration_sec:
+            self.finish("DONE_duration", 0, "max_duration_reached")
+            return cmd
+
+        if (
+            elapsed >= self.min_mapping_duration_sec
+            and self.coverage_available
+            and self.explored_ratio is not None
+            and self.unknown_ratio is not None
+            and (
+                self.explored_ratio >= self.explored_ratio_threshold
+                or self.unknown_ratio <= self.unknown_ratio_threshold
+            )
+        ):
+            self.finish("DONE_coverage", 0, "coverage_reached")
+            return cmd
+
+        if elapsed >= self.min_mapping_duration_sec and self.stuck_count > self.max_stuck_count:
+            self.finish("ERROR_stuck", 4, "max_stuck_count_exceeded")
+            return cmd
+
         # rotate_scan pattern — just spin in place
         if self.args.pattern == "rotate_scan":
-            self.state = State.ROTATE_LEFT
+            self.state = State.ROTATE_SEARCH_LEFT
             cmd.angular.z = self.rotate_speed
             return self.sanitize_cmd(cmd)
 
-        # Side stop distance: slightly less aggressive than safety_stop
-        side_stop_distance = max(0.30, self.critical_stop_distance + 0.10)
+        blocked = front_min < self.safety_stop_distance
+        side_caution_distance = max(0.35, self.critical_stop_distance + 0.15)
 
-        if front_min >= self.safety_stop_distance and global_min >= side_stop_distance:
-            # Clear path — drive forward
-            if self.state in (State.ROTATE_LEFT, State.ROTATE_RIGHT):
-                if now - self.state_started < 1.0:
-                    # Finish the last rotation segment briefly before going forward
-                    cmd.angular.z = (
-                        self.rotate_speed if self.state == State.ROTATE_LEFT else -self.rotate_speed
-                    )
-                    return self.sanitize_cmd(cmd)
-                else:
-                    self._last_event = "rotation_done_go_forward"
+        if not blocked:
+            if self.state in (
+                State.ROTATE_SEARCH_LEFT,
+                State.ROTATE_SEARCH_RIGHT,
+                State.ESCAPE_ROTATE,
+            ) and now - self.state_started < 0.8:
+                cmd.angular.z = self.rotation_sign() * self.rotate_speed
+                return self.sanitize_cmd(cmd)
             self.blocked_since = None
             self.rotate_attempts = 0
+            self.stuck_count = 0
+            
+            if front_min < self.safety_stop_distance * 2:
+                self.set_state(State.SLOW_FORWARD, now)
+                cmd.linear.x = min(self.forward_speed * 0.75, 0.1)
+                return self.sanitize_cmd(cmd)
+            elif front_min < self.safety_stop_distance * 1.5:
+                self.set_state(State.SLOW_FORWARD, now)
+                cmd.linear.x = min(self.forward_speed * 0.5, 0.1)
+                return self.sanitize_cmd(cmd)
+
+            # if global_min < side_caution_distance:
+            #     self.set_state(State.SLOW_FORWARD, now)
+            #     cmd.linear.x = min(self.forward_speed * 0.5, 0.08)
+            #     return self.sanitize_cmd(cmd)
             self.set_state(State.FORWARD, now)
             cmd.linear.x = self.forward_speed
             return self.sanitize_cmd(cmd)
 
-        # Obstacle within safety zone — need to rotate
         if self.blocked_since is None:
             self.blocked_since = now
+            self.stuck_count += 1
+            self.set_state(State.STOP_AND_SCAN, now)
             self._last_event = "obstacle_detected"
 
-        # Decide rotation direction: away from the nearer wall
-        prefer_left = right_min < left_min
+        if elapsed >= self.min_mapping_duration_sec and self.stuck_count > self.max_stuck_count:
+            self.finish("ERROR_stuck", 4, "max_stuck_count_exceeded")
+            return cmd
 
-        # Check global blocked timeout
-        if now - self.blocked_since > self.blocked_timeout:
-            if self.args.pattern == "wide_obstacles_safe":
-                self.rotate_attempts += 1
-                if self.rotate_attempts > self.max_rotate_attempts:
-                    self.state = State.DONE
-                    self.reason = "blocked_by_obstacle"
-                    self.exit_code = 4
-                    self._last_event = "max_rotate_attempts_exceeded_blocked_timeout"
-                    rospy.logwarn(
-                        "[safe_mapping_driver] giving up after %d wide-obstacles recovery attempts",
-                        self.rotate_attempts - 1,
-                    )
-                    return Twist()
-                new_state = (
-                    State.ROTATE_RIGHT if self.state == State.ROTATE_LEFT else State.ROTATE_LEFT
-                )
-                if self.state not in (State.ROTATE_LEFT, State.ROTATE_RIGHT):
-                    new_state = State.ROTATE_LEFT if prefer_left else State.ROTATE_RIGHT
-                self.set_state(new_state, now)
-                self.blocked_since = now
-                self._last_event = f"wide_obstacles_recovery_rotate_{new_state.value.lower()}_attempt_{self.rotate_attempts}"
-                rospy.loginfo(
-                    "[safe_mapping_driver] wide_obstacles recovery attempt=%d state=%s front=%.2f global=%.2f",
-                    self.rotate_attempts,
-                    new_state.value,
-                    front_min,
-                    global_min,
-                )
-                cmd.angular.z = (
-                    self.rotate_speed if self.state == State.ROTATE_LEFT else -self.rotate_speed
-                )
-                return self.sanitize_cmd(cmd)
-            if self.state in (State.ROTATE_LEFT, State.ROTATE_RIGHT):
-                # Still rotating but cannot clear — give up
-                self.state = State.DONE
-                self.reason = "blocked_by_obstacle"
-                self.exit_code = 4
-                self._last_event = "blocked_timeout_abort"
-                rospy.logwarn(
-                    "[safe_mapping_driver] blocked_timeout_abort after %.1fs",
-                    now - self.blocked_since,
-                )
-                return Twist()
+        if self.state not in (
+            State.STOP_AND_SCAN,
+            State.ROTATE_SEARCH_LEFT,
+            State.ROTATE_SEARCH_RIGHT,
+            State.ESCAPE_ROTATE,
+        ):
+            self.set_state(State.STOP_AND_SCAN, now)
 
-        if self.state not in (State.ROTATE_LEFT, State.ROTATE_RIGHT):
-            # Start rotating
+        if self.state == State.STOP_AND_SCAN:
+            if now - self.state_started < self.stop_and_scan_duration:
+                return cmd
+            new_state = self.preferred_rotation_state(left_min, right_min)
             self.rotate_attempts += 1
-            if self.rotate_attempts > self.max_rotate_attempts:
-                self.state = State.DONE
-                self.reason = "blocked_by_obstacle"
-                self.exit_code = 4
-                self._last_event = f"max_rotate_attempts_{self.max_rotate_attempts}_exceeded"
-                rospy.logwarn(
-                    "[safe_mapping_driver] giving up after %d rotation attempts",
-                    self.rotate_attempts - 1,
-                )
-                return Twist()
-            new_state = State.ROTATE_LEFT if prefer_left else State.ROTATE_RIGHT
             self.set_state(new_state, now)
-            self._last_event = f"start_rotate_{new_state.value.lower()}_attempt_{self.rotate_attempts}"
+            self._last_event = f"rotate_search_start_{new_state.value.lower()}_attempt_{self.rotate_attempts}"
             rospy.loginfo(
-                "[safe_mapping_driver] %s attempt=%d front=%.2f global=%.2f",
+                "[safe_mapping_driver] blocked recovery state=%s attempt=%d stuck_count=%d elapsed=%.1f front=%.2f global=%.2f",
                 new_state.value,
                 self.rotate_attempts,
+                self.stuck_count,
+                elapsed,
                 front_min,
                 global_min,
             )
-        elif now - self.state_started > self.max_rotate_segment:
-            # Current rotation segment expired — switch direction or give up
-            self.rotate_attempts += 1
-            if self.rotate_attempts > self.max_rotate_attempts:
-                self.state = State.DONE
-                self.reason = "blocked_by_obstacle"
-                self.exit_code = 4
-                self._last_event = "max_rotate_attempts_exceeded_mid_rotation"
-                return Twist()
-            # Switch direction
-            new_state = (
-                State.ROTATE_RIGHT if self.state == State.ROTATE_LEFT else State.ROTATE_LEFT
-            )
-            self.set_state(new_state, now)
-            self._last_event = f"switch_rotate_{new_state.value.lower()}_attempt_{self.rotate_attempts}"
 
-        cmd.angular.z = (
-            self.rotate_speed if self.state == State.ROTATE_LEFT else -self.rotate_speed
-        )
+        if self.state in (State.ROTATE_SEARCH_LEFT, State.ROTATE_SEARCH_RIGHT):
+            if now - self.state_started > self.max_rotate_segment:
+                self.stuck_count += 1
+                self.rotate_attempts += 1
+                if elapsed >= self.min_mapping_duration_sec and self.stuck_count > self.max_stuck_count:
+                    self.finish("ERROR_stuck", 4, "max_stuck_count_exceeded")
+                    return Twist()
+                if self.rotate_attempts % 3 == 0 or (
+                    self.blocked_since is not None and now - self.blocked_since > self.blocked_timeout
+                ):
+                    self.set_state(State.ESCAPE_ROTATE, now)
+                    self._last_event = "escape_rotate_start"
+                else:
+                    new_state = self.opposite_rotation_state()
+                    self.set_state(new_state, now)
+                    self._last_event = f"rotate_search_switch_{new_state.value.lower()}_attempt_{self.rotate_attempts}"
+
+        if self.state == State.ESCAPE_ROTATE:
+            if now - self.state_started > self.escape_rotate_duration:
+                self.stuck_count += 1
+                if elapsed >= self.min_mapping_duration_sec and self.stuck_count > self.max_stuck_count:
+                    self.finish("ERROR_stuck", 4, "max_stuck_count_exceeded")
+                    return Twist()
+                self.set_state(State.STOP_AND_SCAN, now)
+                self.blocked_since = now
+                self._last_event = "escape_rotate_done_retry"
+                return Twist()
+
+        cmd.angular.z = self.rotation_sign() * self.rotate_speed
         return self.sanitize_cmd(cmd)
 
     def set_state(self, state: State, now: float) -> None:
         if self.state != state:
             self.state = state
             self.state_started = now
+
+    def finish(self, stop_reason: str, exit_code: int, event: str) -> None:
+        if self.stop_reason:
+            return
+        self.stop_reason = stop_reason
+        self.reason = stop_reason
+        self.exit_code = exit_code
+        self.state = State.ERROR if stop_reason.startswith("ERROR_") else State.DONE
+        self._last_event = event
+
+    def elapsed(self) -> float:
+        return time.monotonic() - self.start_time
+
+    def preferred_rotation_state(self, left_min: float, right_min: float) -> State:
+        return State.ROTATE_SEARCH_LEFT if right_min < left_min else State.ROTATE_SEARCH_RIGHT
+
+    def opposite_rotation_state(self) -> State:
+        if self.state == State.ROTATE_SEARCH_LEFT:
+            return State.ROTATE_SEARCH_RIGHT
+        return State.ROTATE_SEARCH_LEFT
+
+    def rotation_sign(self) -> float:
+        if self.state == State.ROTATE_SEARCH_RIGHT:
+            return -1.0
+        if self.state == State.ESCAPE_ROTATE and self.rotate_attempts % 2 == 0:
+            return -1.0
+        return 1.0
 
     def scan_is_fresh(self) -> bool:
         if self.latest_scan is None or self.latest_scan_time is None:
@@ -438,12 +519,17 @@ class SafeMappingDriver:
         self.csv_writer.writerow(
             [
                 f"{rospy.Time.now().to_sec():.6f}",
+                f"{self.elapsed():.3f}",
                 self.state.value,
+                event,
                 self.format_range(front_min),
                 self.format_range(global_min),
                 f"{cmd.linear.x:.4f}",
                 f"{cmd.angular.z:.4f}",
-                event,
+                str(self.stuck_count),
+                self.format_ratio(self.explored_ratio),
+                self.format_ratio(self.unknown_ratio),
+                self.stop_reason,
             ]
         )
         self.csv_file.flush()
@@ -452,11 +538,21 @@ class SafeMappingDriver:
     def format_range(value: float) -> str:
         return "inf" if math.isinf(value) else f"{value:.4f}"
 
+    @staticmethod
+    def format_ratio(value: Optional[float]) -> str:
+        return "N/A" if value is None else f"{value:.6f}"
+
     def write_status(self) -> None:
+        if not self.stop_reason:
+            self.finish("ERROR_unknown", 1, "missing_stop_reason")
         with open(self.status_path, "w") as status_file:
             status_file.write(f"result={'PASS' if self.exit_code == 0 else 'FAIL'}\n")
-            status_file.write(f"reason={self.reason}\n")
+            status_file.write(f"reason={self.stop_reason}\n")
+            status_file.write(f"stop_reason={self.stop_reason}\n")
             status_file.write(f"exit_code={self.exit_code}\n")
+            status_file.write(f"elapsed={self.elapsed():.3f}\n")
+            status_file.write(f"explored_ratio={self.format_ratio(self.explored_ratio)}\n")
+            status_file.write(f"unknown_ratio={self.format_ratio(self.unknown_ratio)}\n")
             status_file.write(f"csv={self.csv_path}\n")
 
 

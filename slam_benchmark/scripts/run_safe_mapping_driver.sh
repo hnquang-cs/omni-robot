@@ -8,7 +8,7 @@ REP="${3:-1}"
 
 default_duration() {
   case "$1" in
-    wide_obstacles) echo 150 ;;
+    wide_obstacles) echo 600 ;;
     *) echo 90 ;;
   esac
 }
@@ -36,10 +36,10 @@ default_blocked_timeout() {
 
 DURATION="${DURATION:-$(default_duration "${SCENARIO}")}"
 PATTERN="${PATTERN:-$(default_pattern "${SCENARIO}")}"
-FORWARD_SPEED="${FORWARD_SPEED:-0.25}"
-ROTATE_SPEED="${ROTATE_SPEED:-0.25}"
+FORWARD_SPEED="${FORWARD_SPEED:-0.35}"
+ROTATE_SPEED="${ROTATE_SPEED:-0.35}"
 SAFETY_STOP_DISTANCE="${SAFETY_STOP_DISTANCE:-0.80}"
-CRITICAL_STOP_DISTANCE="${CRITICAL_STOP_DISTANCE:-0.35}"
+CRITICAL_STOP_DISTANCE="${CRITICAL_STOP_DISTANCE:-0.30}"
 FRONT_ANGLE_DEG="${FRONT_ANGLE_DEG:-25}"
 MAX_ROTATE_ATTEMPTS="${MAX_ROTATE_ATTEMPTS:-$(default_max_rotate_attempts "${SCENARIO}")}"
 MAX_ROTATE_SEGMENT="${MAX_ROTATE_SEGMENT:-6.0}"
