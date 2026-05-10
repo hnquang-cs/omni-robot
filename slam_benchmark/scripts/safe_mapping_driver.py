@@ -24,6 +24,8 @@ from nav_msgs.msg import OccupancyGrid
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
 
+from map_coverage_tracker import DynamicCoverageTracker, CoverageMetrics, format_metric
+
 
 class State(Enum):
     IDLE = "IDLE"
@@ -49,13 +51,15 @@ class SafeMappingDriver:
         self.use_discrete_45 = args.use_discrete_45
         self.primitive_topic = args.primitive_topic
         self.primitive_state_topic = args.primitive_state_topic
-        self.forward_speed = clamp(args.forward_speed, 0.0, 0.45)
-        self.rotate_speed = abs(clamp(args.rotate_speed, 0.0, 0.45))
+        self.forward_speed = clamp(args.forward_speed, 0.0, 0.8)
+        self.rotate_speed = abs(clamp(args.rotate_speed, 0.0, 1.6))
         self.safety_stop_distance = args.safety_stop_distance
         self.min_mapping_duration_sec = 120.0
         self.max_duration_sec = 600.0
-        self.explored_ratio_threshold = 0.30
-        self.unknown_ratio_threshold = 0.50
+        self.progress_window_sec = 120.0
+        self.min_explored_growth_m2 = 1.0
+        self.min_bbox_growth_m2 = 1.0
+        self.min_search_attempts_before_coverage_done = 5
         self.critical_stop_distance = 0.30
         self.collision_risk_duration_sec = 2.0
         self.max_stuck_count = 12
@@ -68,13 +72,16 @@ class SafeMappingDriver:
 
         self.latest_scan: Optional[LaserScan] = None
         self.latest_scan_time: Optional[rospy.Time] = None
-        self.latest_map: Optional[OccupancyGrid] = None
-        self.explored_ratio: Optional[float] = None
-        self.unknown_ratio: Optional[float] = None
+        self.coverage_tracker = DynamicCoverageTracker(
+            active_bbox_margin_m=1.0,
+            progress_window_sec=self.progress_window_sec,
+        )
+        self.coverage_metrics: Optional[CoverageMetrics] = None
         self.coverage_available = False
         self.state = State.IDLE
         self.state_started = time.monotonic()
         self.rotate_attempts = 0
+        self.search_attempt_count = 0
         self.stuck_count = 0
         self.blocked_since: Optional[float] = None
         self.critical_since: Optional[float] = None
@@ -107,8 +114,14 @@ class SafeMappingDriver:
                 "cmd_x",
                 "cmd_z",
                 "stuck_count",
-                "explored_ratio",
-                "unknown_ratio",
+                "search_attempt_count",
+                "global_explored_ratio",
+                "active_explored_ratio",
+                "active_unknown_ratio",
+                "explored_area_m2",
+                "active_bbox_area_m2",
+                "explored_area_growth_m2",
+                "active_bbox_growth_m2",
                 "stop_reason",
             ]
         )
@@ -139,18 +152,15 @@ class SafeMappingDriver:
         self.latest_scan_time = rospy.Time.now()
 
     def map_callback(self, msg: OccupancyGrid) -> None:
-        self.latest_map = msg
-        total = len(msg.data)
-        if total <= 0:
+        try:
+            self.coverage_metrics = self.coverage_tracker.update_from_occupancy_grid(
+                msg,
+                timestamp=time.monotonic(),
+            )
+            self.coverage_available = True
+        except Exception as exc:
             self.coverage_available = False
-            self.explored_ratio = None
-            self.unknown_ratio = None
-            return
-        unknown = sum(1 for cell in msg.data if cell < 0)
-        explored = total - unknown
-        self.explored_ratio = explored / float(total)
-        self.unknown_ratio = unknown / float(total)
-        self.coverage_available = True
+            rospy.logwarn_throttle(10.0, "[safe_mapping_driver] coverage update failed: %s", exc)
 
     def primitive_state_callback(self, msg: String) -> None:
         self.latest_primitive_state = msg.data
@@ -214,19 +224,41 @@ class SafeMappingDriver:
         print(f"[SAFE_MAPPING] stop_reason={self.stop_reason}", flush=True)
         print(f"[SAFE_MAPPING] elapsed={self.elapsed():.2f}", flush=True)
         print(
-            f"[SAFE_MAPPING] explored_ratio={self.format_ratio(self.explored_ratio)}",
+            f"[SAFE_MAPPING] global_explored_ratio={self.metric('global_explored_ratio')}",
             flush=True,
         )
         print(
-            f"[SAFE_MAPPING] unknown_ratio={self.format_ratio(self.unknown_ratio)}",
+            f"[SAFE_MAPPING] active_explored_ratio={self.metric('active_explored_ratio')}",
+            flush=True,
+        )
+        print(
+            f"[SAFE_MAPPING] active_unknown_ratio={self.metric('active_unknown_ratio')}",
+            flush=True,
+        )
+        print(
+            f"[SAFE_MAPPING] explored_area_m2={self.metric('explored_area_m2')}",
+            flush=True,
+        )
+        print(
+            f"[SAFE_MAPPING] explored_area_growth_m2={self.metric('explored_area_growth_m2')}",
+            flush=True,
+        )
+        print(
+            f"[SAFE_MAPPING] active_bbox_growth_m2={self.metric('active_bbox_growth_m2')}",
             flush=True,
         )
         rospy.loginfo(
-            "[safe_mapping_driver] finished stop_reason=%s elapsed=%.2f explored_ratio=%s unknown_ratio=%s exit_code=%d",
+            "[safe_mapping_driver] finished stop_reason=%s elapsed=%.2f global_explored_ratio=%s "
+            "active_explored_ratio=%s active_unknown_ratio=%s explored_area_m2=%s "
+            "explored_growth=%s bbox_growth=%s exit_code=%d",
             self.stop_reason,
             self.elapsed(),
-            self.format_ratio(self.explored_ratio),
-            self.format_ratio(self.unknown_ratio),
+            self.metric("global_explored_ratio"),
+            self.metric("active_explored_ratio"),
+            self.metric("active_unknown_ratio"),
+            self.metric("explored_area_m2"),
+            self.metric("explored_area_growth_m2"),
+            self.metric("active_bbox_growth_m2"),
             self.exit_code,
         )
         return self.exit_code
@@ -267,17 +299,8 @@ class SafeMappingDriver:
             self.finish("DONE_duration", 0, "max_duration_reached")
             return cmd
 
-        if (
-            elapsed >= self.min_mapping_duration_sec
-            and self.coverage_available
-            and self.explored_ratio is not None
-            and self.unknown_ratio is not None
-            and (
-                self.explored_ratio >= self.explored_ratio_threshold
-                or self.unknown_ratio <= self.unknown_ratio_threshold
-            )
-        ):
-            self.finish("DONE_coverage", 0, "coverage_reached")
+        if self.coverage_is_stable(elapsed):
+            self.finish("DONE_coverage_stable", 0, "coverage_stable")
             return cmd
 
         if elapsed >= self.min_mapping_duration_sec and self.stuck_count > self.max_stuck_count:
@@ -305,14 +328,14 @@ class SafeMappingDriver:
             self.rotate_attempts = 0
             self.stuck_count = 0
             
-            if front_min < self.safety_stop_distance * 2:
-                self.set_state(State.SLOW_FORWARD, now)
-                cmd.linear.x = min(self.forward_speed * 0.75, 0.1)
-                return self.sanitize_cmd(cmd)
-            elif front_min < self.safety_stop_distance * 1.5:
-                self.set_state(State.SLOW_FORWARD, now)
-                cmd.linear.x = min(self.forward_speed * 0.5, 0.1)
-                return self.sanitize_cmd(cmd)
+            # if front_min < self.safety_stop_distance * 2:
+            #     self.set_state(State.SLOW_FORWARD, now)
+            #     cmd.linear.x = min(self.forward_speed * 0.8, 0.1)
+            #     return self.sanitize_cmd(cmd)
+            # elif front_min < self.safety_stop_distance * 1.5:
+            #     self.set_state(State.SLOW_FORWARD, now)
+            #     cmd.linear.x = min(self.forward_speed * 0.7, 0.1)
+            #     return self.sanitize_cmd(cmd)
 
             # if global_min < side_caution_distance:
             #     self.set_state(State.SLOW_FORWARD, now)
@@ -345,12 +368,14 @@ class SafeMappingDriver:
                 return cmd
             new_state = self.preferred_rotation_state(left_min, right_min)
             self.rotate_attempts += 1
+            self.search_attempt_count += 1
             self.set_state(new_state, now)
             self._last_event = f"rotate_search_start_{new_state.value.lower()}_attempt_{self.rotate_attempts}"
             rospy.loginfo(
-                "[safe_mapping_driver] blocked recovery state=%s attempt=%d stuck_count=%d elapsed=%.1f front=%.2f global=%.2f",
+                "[safe_mapping_driver] blocked recovery state=%s attempt=%d search_attempts=%d stuck_count=%d elapsed=%.1f front=%.2f global=%.2f",
                 new_state.value,
                 self.rotate_attempts,
+                self.search_attempt_count,
                 self.stuck_count,
                 elapsed,
                 front_min,
@@ -404,6 +429,22 @@ class SafeMappingDriver:
 
     def elapsed(self) -> float:
         return time.monotonic() - self.start_time
+
+    def coverage_is_stable(self, elapsed: float) -> bool:
+        if elapsed < self.min_mapping_duration_sec:
+            return False
+        if not self.coverage_available or self.coverage_metrics is None:
+            return False
+        if self.search_attempt_count < self.min_search_attempts_before_coverage_done:
+            return False
+        explored_growth = self.coverage_metrics.explored_area_growth_m2
+        bbox_growth = self.coverage_metrics.active_bbox_growth_m2
+        if explored_growth is None or bbox_growth is None:
+            return False
+        return (
+            explored_growth < self.min_explored_growth_m2
+            and bbox_growth < self.min_bbox_growth_m2
+        )
 
     def preferred_rotation_state(self, left_min: float, right_min: float) -> State:
         return State.ROTATE_SEARCH_LEFT if right_min < left_min else State.ROTATE_SEARCH_RIGHT
@@ -527,8 +568,14 @@ class SafeMappingDriver:
                 f"{cmd.linear.x:.4f}",
                 f"{cmd.angular.z:.4f}",
                 str(self.stuck_count),
-                self.format_ratio(self.explored_ratio),
-                self.format_ratio(self.unknown_ratio),
+                str(self.search_attempt_count),
+                self.metric("global_explored_ratio"),
+                self.metric("active_explored_ratio"),
+                self.metric("active_unknown_ratio"),
+                self.metric("explored_area_m2"),
+                self.metric("active_bbox_area_m2"),
+                self.metric("explored_area_growth_m2"),
+                self.metric("active_bbox_growth_m2"),
                 self.stop_reason,
             ]
         )
@@ -542,6 +589,11 @@ class SafeMappingDriver:
     def format_ratio(value: Optional[float]) -> str:
         return "N/A" if value is None else f"{value:.6f}"
 
+    def metric(self, name: str) -> str:
+        if self.coverage_metrics is None:
+            return "N/A"
+        return format_metric(getattr(self.coverage_metrics, name), 6)
+
     def write_status(self) -> None:
         if not self.stop_reason:
             self.finish("ERROR_unknown", 1, "missing_stop_reason")
@@ -551,8 +603,15 @@ class SafeMappingDriver:
             status_file.write(f"stop_reason={self.stop_reason}\n")
             status_file.write(f"exit_code={self.exit_code}\n")
             status_file.write(f"elapsed={self.elapsed():.3f}\n")
-            status_file.write(f"explored_ratio={self.format_ratio(self.explored_ratio)}\n")
-            status_file.write(f"unknown_ratio={self.format_ratio(self.unknown_ratio)}\n")
+            status_file.write(f"search_attempt_count={self.search_attempt_count}\n")
+            status_file.write(f"global_explored_ratio={self.metric('global_explored_ratio')}\n")
+            status_file.write(f"global_unknown_ratio={self.metric('global_unknown_ratio')}\n")
+            status_file.write(f"active_explored_ratio={self.metric('active_explored_ratio')}\n")
+            status_file.write(f"active_unknown_ratio={self.metric('active_unknown_ratio')}\n")
+            status_file.write(f"explored_area_m2={self.metric('explored_area_m2')}\n")
+            status_file.write(f"active_bbox_area_m2={self.metric('active_bbox_area_m2')}\n")
+            status_file.write(f"explored_area_growth_m2={self.metric('explored_area_growth_m2')}\n")
+            status_file.write(f"active_bbox_growth_m2={self.metric('active_bbox_growth_m2')}\n")
             status_file.write(f"csv={self.csv_path}\n")
 
 

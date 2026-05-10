@@ -89,7 +89,7 @@ scenario_duration() {
     corridor_static) echo 45 ;;
     open_room_obstacles) echo 120 ;;
     narrow_turn) echo 105 ;;
-    wide_obstacles) echo 240 ;;
+    wide_obstacles) echo 300 ;;
     *) echo 90 ;;
   esac
 }
@@ -590,17 +590,26 @@ run_trial() {
   fi
   log_line "${trial_log}" "safe_driver_exit=${driver_status}"
   local safe_status_file="${trial_dir}/safe_driver_status.txt"
-  local stop_reason="" driver_elapsed="" explored_ratio="" unknown_ratio=""
+  local stop_reason="" driver_elapsed="" global_explored_ratio="" active_explored_ratio=""
+  local active_unknown_ratio="" explored_area_m2="" explored_area_growth_m2="" active_bbox_growth_m2=""
   if [[ -s "${safe_status_file}" ]]; then
     stop_reason="$(awk -F= '$1=="stop_reason"{print $2}' "${safe_status_file}" | tail -n1)"
     [[ -n "${stop_reason}" ]] || stop_reason="$(awk -F= '$1=="reason"{print $2}' "${safe_status_file}" | tail -n1)"
     driver_elapsed="$(awk -F= '$1=="elapsed"{print $2}' "${safe_status_file}" | tail -n1)"
-    explored_ratio="$(awk -F= '$1=="explored_ratio"{print $2}' "${safe_status_file}" | tail -n1)"
-    unknown_ratio="$(awk -F= '$1=="unknown_ratio"{print $2}' "${safe_status_file}" | tail -n1)"
+    global_explored_ratio="$(awk -F= '$1=="global_explored_ratio"{print $2}' "${safe_status_file}" | tail -n1)"
+    active_explored_ratio="$(awk -F= '$1=="active_explored_ratio"{print $2}' "${safe_status_file}" | tail -n1)"
+    active_unknown_ratio="$(awk -F= '$1=="active_unknown_ratio"{print $2}' "${safe_status_file}" | tail -n1)"
+    explored_area_m2="$(awk -F= '$1=="explored_area_m2"{print $2}' "${safe_status_file}" | tail -n1)"
+    explored_area_growth_m2="$(awk -F= '$1=="explored_area_growth_m2"{print $2}' "${safe_status_file}" | tail -n1)"
+    active_bbox_growth_m2="$(awk -F= '$1=="active_bbox_growth_m2"{print $2}' "${safe_status_file}" | tail -n1)"
     log_line "${trial_log}" "stop_reason=${stop_reason:-unknown}"
     log_line "${trial_log}" "elapsed=${driver_elapsed:-unknown}"
-    log_line "${trial_log}" "explored_ratio=${explored_ratio:-unknown}"
-    log_line "${trial_log}" "unknown_ratio=${unknown_ratio:-unknown}"
+    log_line "${trial_log}" "global_explored_ratio=${global_explored_ratio:-unknown}"
+    log_line "${trial_log}" "active_explored_ratio=${active_explored_ratio:-unknown}"
+    log_line "${trial_log}" "active_unknown_ratio=${active_unknown_ratio:-unknown}"
+    log_line "${trial_log}" "explored_area_m2=${explored_area_m2:-unknown}"
+    log_line "${trial_log}" "explored_area_growth_m2=${explored_area_growth_m2:-unknown}"
+    log_line "${trial_log}" "active_bbox_growth_m2=${active_bbox_growth_m2:-unknown}"
   else
     log_line "${trial_log}" "stop_reason=missing_safe_driver_status"
   fi
@@ -677,6 +686,9 @@ run_trial() {
   rosrun slam_benchmark evaluate_map_basic.py \
     "${trial_dir}/map.yaml" -o "${trial_dir}/map_metrics.csv" \
     >>"${trial_log}" 2>&1 || true
+  rosrun slam_benchmark evaluate_map_coverage.py \
+    "${trial_dir}/map.yaml" -o "${trial_dir}/map_coverage_metrics.csv" \
+    >>"${trial_log}" 2>&1 || true
   # evaluate_map_basic.py always writes the file (N/A if map missing)
   if [[ ! -s "${trial_dir}/map_metrics.csv" ]]; then
     write_na_map_metrics "${trial_dir}/map_metrics.csv" "evaluate_map_script_failed"
@@ -694,7 +706,7 @@ run_trial() {
     local reason
     reason="${stop_reason}"
     [[ -n "${reason}" ]] || reason="$(awk -F= '$1=="reason"{print $2}' "${trial_dir}/safe_driver_status.txt" | tail -n1)"
-    if [[ -n "${reason}" && "${reason}" != DONE_duration && "${reason}" != DONE_coverage ]]; then
+    if [[ -n "${reason}" && "${reason}" != DONE_duration && "${reason}" != DONE_coverage_stable ]]; then
       notes+="${reason};"
     fi
   else

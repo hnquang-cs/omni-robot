@@ -100,13 +100,21 @@ if [[ -s "${STATUS_FILE}" ]]; then
   STOP_REASON="$(awk -F= '$1=="stop_reason"{print $2}' "${STATUS_FILE}" | tail -n1)"
   [[ -n "${STOP_REASON}" ]] || STOP_REASON="$(awk -F= '$1=="reason"{print $2}' "${STATUS_FILE}" | tail -n1)"
   DRIVER_ELAPSED="$(awk -F= '$1=="elapsed"{print $2}' "${STATUS_FILE}" | tail -n1)"
-  EXPLORED_RATIO="$(awk -F= '$1=="explored_ratio"{print $2}' "${STATUS_FILE}" | tail -n1)"
-  UNKNOWN_RATIO="$(awk -F= '$1=="unknown_ratio"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  GLOBAL_EXPLORED_RATIO="$(awk -F= '$1=="global_explored_ratio"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  ACTIVE_EXPLORED_RATIO="$(awk -F= '$1=="active_explored_ratio"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  ACTIVE_UNKNOWN_RATIO="$(awk -F= '$1=="active_unknown_ratio"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  EXPLORED_AREA_M2="$(awk -F= '$1=="explored_area_m2"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  EXPLORED_AREA_GROWTH_M2="$(awk -F= '$1=="explored_area_growth_m2"{print $2}' "${STATUS_FILE}" | tail -n1)"
+  ACTIVE_BBOX_GROWTH_M2="$(awk -F= '$1=="active_bbox_growth_m2"{print $2}' "${STATUS_FILE}" | tail -n1)"
   log "safe_driver_exit=${DRIVER_STATUS}"
   log "stop_reason=${STOP_REASON:-unknown}"
   log "elapsed=${DRIVER_ELAPSED:-unknown}"
-  log "explored_ratio=${EXPLORED_RATIO:-unknown}"
-  log "unknown_ratio=${UNKNOWN_RATIO:-unknown}"
+  log "global_explored_ratio=${GLOBAL_EXPLORED_RATIO:-unknown}"
+  log "active_explored_ratio=${ACTIVE_EXPLORED_RATIO:-unknown}"
+  log "active_unknown_ratio=${ACTIVE_UNKNOWN_RATIO:-unknown}"
+  log "explored_area_m2=${EXPLORED_AREA_M2:-unknown}"
+  log "explored_area_growth_m2=${EXPLORED_AREA_GROWTH_M2:-unknown}"
+  log "active_bbox_growth_m2=${ACTIVE_BBOX_GROWTH_M2:-unknown}"
 else
   log "WARN: missing safe driver status at ${STATUS_FILE}"
   log "safe_driver_exit=${DRIVER_STATUS}"
@@ -123,6 +131,8 @@ rosrun map_server map_saver -f "${FINAL_PREFIX}" map:=/map
 log "evaluating final map"
 rosrun slam_benchmark evaluate_map_basic.py \
   "${FINAL_PREFIX}.yaml" -o "${MAP_DIR}/gmapping_lidar_wide_obstacles_final_metrics.csv"
+rosrun slam_benchmark evaluate_map_coverage.py \
+  "${FINAL_PREFIX}.yaml" -o "${MAP_DIR}/gmapping_lidar_wide_obstacles_final_coverage_metrics.csv"
 
 NAV_MAP_DIR="${WS_ROOT}/src/omni-robot/nav_bringup/maps"
 if [[ -d "${NAV_MAP_DIR}" ]]; then
@@ -140,6 +150,7 @@ fi
 
 log "PASS: final_map=${FINAL_PREFIX}.yaml"
 log "PASS: metrics=${MAP_DIR}/gmapping_lidar_wide_obstacles_final_metrics.csv"
+log "PASS: coverage_metrics=${MAP_DIR}/gmapping_lidar_wide_obstacles_final_coverage_metrics.csv"
 log "PASS: log=${LOG_FILE}"
 
 if [[ "${DRIVER_STATUS}" -ne 0 ]]; then

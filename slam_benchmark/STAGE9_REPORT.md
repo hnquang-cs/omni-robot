@@ -109,11 +109,74 @@ Final map output:
 - `results/stage9/maps/gmapping_lidar_wide_obstacles_final.yaml`
 - `results/stage9/maps/gmapping_lidar_wide_obstacles_final.pgm`
 - `results/stage9/maps/gmapping_lidar_wide_obstacles_final_metrics.csv`
+- `results/stage9/maps/gmapping_lidar_wide_obstacles_final_coverage_metrics.csv`
 
 After map creation, the map is copied to:
 
 - `nav_bringup/maps/lidar_baseline_wide_obstacles.yaml`
 - `nav_bringup/maps/lidar_baseline_wide_obstacles.pgm`
+
+### Dynamic Coverage Without Hardcoded ROI
+
+Gmapping publishes a fixed-size occupancy grid from its configured map bounds.
+For the wide-obstacles run that grid is much larger than the area the robot has
+actually observed, so `global_explored_ratio = known_cells / total_grid_cells`
+can look artificially low even when the useful local map is already saturated.
+Stage 9 no longer uses a global explored or unknown ratio threshold as the main
+mapping stop condition.
+
+The coverage tracker avoids hand-written ROI files and world-specific crop
+settings. It finds every known occupancy-grid cell (`value != -1`), computes the
+active bounding box around those cells, expands that box by a 1.0 m margin, and
+clamps the box to the published map bounds. Active coverage is then computed
+inside that dynamic box:
+
+- `active_explored_ratio`
+- `active_unknown_ratio`
+- `explored_area_m2`
+- `active_bbox_area_m2`
+
+The same tracker stores a short time history and computes progress over a 30 s
+window. Stage 9 mapping now treats coverage as stable only when all conditions
+are true:
+
+- elapsed time is at least 120 s
+- `explored_area_growth_m2 < 1.0` over the last 30 s
+- `active_bbox_growth_m2 < 1.0` over the last 30 s
+- the robot has made at least 5 search/rotation attempts
+- no collision-risk or stuck error is active
+
+The official Stage 9 stop reasons are now:
+
+- `DONE_duration`: elapsed time reaches 300 s
+- `DONE_coverage_stable`: dynamic map progress is below threshold after the
+  minimum mapping duration
+- `ERROR_collision_risk`: global LiDAR minimum stays below 0.30 m for more than
+  2 s
+- `ERROR_stuck`: stuck count exceeds the safety threshold after the minimum
+  mapping duration
+
+Test result for final map creation:
+
+- `stop_reason=DONE_coverage_stable`
+- `elapsed=195.520`
+- `global_explored_ratio=0.126019`
+- `active_explored_ratio=0.614835`
+- `active_unknown_ratio=0.385165`
+- `explored_area_m2=104.525003`
+- `explored_area_growth_m2=0.800000`
+- `active_bbox_growth_m2=0.000000`
+
+Benchmark single-run result for `wide_obstacles/gmapping_lidar/rep_1`:
+
+- `stop_reason=DONE_duration`
+- `elapsed=300.441`
+- `global_explored_ratio=0.180990`
+- `active_explored_ratio=0.676254`
+- `active_unknown_ratio=0.323746`
+- `explored_area_m2=150.120004`
+- `explored_area_growth_m2=4.775000`
+- `active_bbox_growth_m2=0.000000`
 
 ### Benchmark
 
