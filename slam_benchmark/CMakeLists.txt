@@ -62,6 +62,15 @@ install(PROGRAMS
   scripts/save_map.sh
   scripts/verify_wide_obstacles_map.py
   scripts/verify_wide_obstacles_world.py
+  scripts/check_frontier_dependencies.sh
+  scripts/check_frontier_runtime.sh
+  scripts/record_frontier_exploration_bag.sh
+  scripts/save_frontier_map.sh
+  scripts/evaluate_frontier_exploration.py
+  scripts/run_frontier_exploration_trial.sh
+  scripts/simple_frontier_detector.py
+  scripts/frontier_exploration_monitor.py
+  scripts/wait_for_topics.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

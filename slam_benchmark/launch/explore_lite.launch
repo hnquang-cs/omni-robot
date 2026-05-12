@@ -1,0 +1,37 @@
+<launch>
+  <!--
+    Stage 11: explore_lite frontier exploration node.
+    Loads parameters from slam_benchmark/config/explore_lite.yaml and remaps
+    the costmap topic to the live Gmapping /map. The move_base action server
+    is used as-is (default name "move_base").
+  -->
+
+  <arg name="map_topic"           default="/map"/>
+  <arg name="map_updates_topic"   default="/map_updates"/>
+  <arg name="robot_base_frame"    default="base_footprint"/>
+  <arg name="visualize"           default="true"/>
+  <arg name="planner_frequency"   default="0.5"/>
+  <arg name="progress_timeout"    default="30.0"/>
+  <arg name="potential_scale"     default="3.0"/>
+  <arg name="orientation_scale"   default="0.0"/>
+  <arg name="gain_scale"          default="1.0"/>
+  <arg name="min_frontier_size"   default="0.5"/>
+  <arg name="transform_tolerance" default="0.5"/>
+
+  <node pkg="explore_lite" type="explore" name="explore" output="screen" respawn="false">
+    <rosparam command="load" file="$(find slam_benchmark)/config/explore_lite.yaml"/>
+
+    <!-- Per-launch overrides (the YAML provides defaults; these remain authoritative). -->
+    <param name="robot_base_frame"    value="$(arg robot_base_frame)"/>
+    <param name="costmap_topic"       value="$(arg map_topic)"/>
+    <param name="costmap_updates_topic" value="$(arg map_updates_topic)"/>
+    <param name="visualize"           value="$(arg visualize)"/>
+    <param name="planner_frequency"   value="$(arg planner_frequency)"/>
+    <param name="progress_timeout"    value="$(arg progress_timeout)"/>
+    <param name="potential_scale"     value="$(arg potential_scale)"/>
+    <param name="orientation_scale"   value="$(arg orientation_scale)"/>
+    <param name="gain_scale"          value="$(arg gain_scale)"/>
+    <param name="min_frontier_size"   value="$(arg min_frontier_size)"/>
+    <param name="transform_tolerance" value="$(arg transform_tolerance)"/>
+  </node>
+</launch>

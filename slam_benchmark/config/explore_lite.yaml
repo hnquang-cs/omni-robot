@@ -1,0 +1,30 @@
+# Stage 11 explore_lite parameters.
+# Reference: http://wiki.ros.org/explore_lite
+# These params are read under the explore node namespace by explore_lite.launch.
+
+robot_base_frame: base_footprint
+costmap_topic: /map
+costmap_updates_topic: /map_updates
+visualize: true
+
+# How often the planner re-evaluates frontiers and possibly re-issues a goal.
+planner_frequency: 0.5
+
+# Frontier weighting. The default cost = potential_scale * potential
+#   - orientation_scale * orientation - gain_scale * gain
+# Setting orientation_scale to 0 disables orientation bias (the robot is
+# forward-only and we filter at /cmd_vel; orientation cost adds noise).
+potential_scale: 3.0
+orientation_scale: 0.0
+gain_scale: 1.0
+
+# Minimum frontier size in meters. Smaller frontiers are ignored.
+# Tighter than default (0.75) so that narrow corridors still get explored.
+min_frontier_size: 0.5
+
+# If the robot makes no progress on a goal for this long (seconds), the
+# frontier is blacklisted and a new goal is selected.
+progress_timeout: 30.0
+
+# Tolerance used when looking up costmap -> robot transform.
+transform_tolerance: 0.5

@@ -1,0 +1,31 @@
+<launch>
+  <!--
+    Stage 11: move_base configured for frontier exploration.
+    Pipeline:
+      explore_lite -> /move_base (action) -> TEB local planner
+                  -> /cmd_vel_raw -> cmd_vel_forward_only_filter -> /cmd_vel
+                  -> gazebo_model_controller
+
+    Differs from nav_bringup/launch/move_base_teb_forward_only.launch only by:
+      - global_costmap_exploration.yaml (track_unknown_space true)
+      - move_base_exploration.yaml (allow_unknown on global planner)
+    NOTE: AMCL is NOT included. Gmapping owns map -> odom.
+  -->
+
+  <arg name="scan_topic"     default="/lidar/scan"/>
+  <arg name="cmd_vel_topic"  default="/cmd_vel_raw"/>
+  <arg name="use_sim_time"   default="true"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <node pkg="move_base" type="move_base" name="move_base" output="screen" required="false">
+    <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
+    <remap from="scan"    to="$(arg scan_topic)"/>
+
+    <rosparam command="load" file="$(find nav_bringup)/config/costmap_common_lidar_debug.yaml"/>
+    <rosparam command="load" file="$(find nav_bringup)/config/global_costmap_exploration.yaml"/>
+    <rosparam command="load" file="$(find nav_bringup)/config/local_costmap_lidar_debug.yaml"/>
+    <rosparam command="load" file="$(find nav_bringup)/config/move_base_exploration.yaml"/>
+    <rosparam command="load" file="$(find nav_bringup)/config/teb_forward_only.yaml"/>
+  </node>
+</launch>

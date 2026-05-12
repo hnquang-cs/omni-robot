@@ -689,3 +689,94 @@ Minimum comparison columns are sensor source, SLAM algorithm, scenario, ATE RMSE
 - Stereo-depth is currently not stable enough to be the main SLAM sensor.
 - The benchmark remains simulation-only; real robot validation belongs to a later hardware stage.
 - Stage 9 intentionally does not implement navigation, `move_base`, AMCL, or TEB.
+
+## Stage 11 Frontier-Based Exploration
+
+Stage 11 replaces the reactive `safe_mapping_driver` motion policy with
+goal-directed **frontier-based exploration**. A *frontier* is a cell that is
+known free but borders unknown cells; targeting one expands the map.
+
+### Pipeline
+
+```
+Gmapping  /map (live)
+     |
+     v
+explore_lite ----> /move_base (action server)
+     ^                 |
+     |                 v
+   /map         TEB local planner
+                       |
+                       v
+              /cmd_vel_raw -> cmd_vel_forward_only_filter -> /cmd_vel
+                                                    |
+                                                    v
+                                          gazebo_model_controller
+                                                    |
+                                                    v
+                                            Gazebo robot moves
+                                                    |
+                                                    v
+                                       LiDAR -> Gmapping -> map grows
+```
+
+### How to run
+
+```bash
+# 1. Verify dependencies (does NOT auto-install).
+roscd slam_benchmark
+./scripts/check_frontier_dependencies.sh
+
+# 2. If explore_lite is missing, install it:
+sudo apt install ros-noetic-explore-lite      # binary
+# or build from source:
+#   cd ~/catkin_ws/src && git clone https://github.com/hrnr/m-explore.git
+#   cd ~/catkin_ws && catkin_make && source devel/setup.bash
+
+# 3. Launch the full exploration stack.
+roslaunch slam_benchmark frontier_exploration_full.launch
+
+# 4. In another shell, sanity-check the running stack.
+rosrun slam_benchmark check_frontier_runtime.sh
+
+# 5. Run a recorded trial (default 300s).
+DURATION=300 rosrun slam_benchmark run_frontier_exploration_trial.sh
+```
+
+### Important constraints
+
+- **Do NOT run AMCL.** Gmapping publishes `map -> odom` while the robot is
+  exploring; AMCL would compete for the same TF.
+- **Do NOT run `map_server` with a static map.** `/map` comes from Gmapping.
+- **Do NOT run `safe_mapping_driver` simultaneously** with `explore_lite`;
+  they would publish conflicting `/cmd_vel` / goal streams. The Stage 9
+  driver is preserved as-is for comparison runs.
+- Only Gmapping runs as SLAM (no Hector concurrently).
+
+### Comparison with Stage 9 (`safe_mapping_driver`)
+
+| Aspect              | Stage 9 safe_mapping_driver | Stage 11 frontier exploration |
+|---------------------|------------------------------|-------------------------------|
+| Motion policy       | Reactive wandering           | Goal-directed (frontier)      |
+| Goal selection      | None (random forward + spin) | Known-free / unknown boundary |
+| Planner             | None                         | move_base (global + TEB local)|
+| Map quality target  | Coverage by chance           | Coverage by intent            |
+| Stops when finished | No (duration only)           | Yes (no frontiers left)       |
+
+Frontier exploration is expected to produce more uniform coverage in the same
+trial duration, especially in maps with branching corridors. The fallback
+`scripts/simple_frontier_detector.py` is provided only when `explore_lite`
+cannot be installed; it is intentionally simple and is not the recommended
+path.
+
+### Outputs
+
+```
+results/stage11_frontier/
+  bags/    raw rosbags
+  csv/     frontier_exploration_metrics.csv
+  logs/    dependency_check / runtime_check / record / trial logs
+  maps/    frontier_gmapping_<timestamp>.{yaml,pgm} + frontier_gmapping_latest.*
+  plots/   reserved
+  raw/<trial_name>/  bag, map, metrics, trial.log per trial
+```

@@ -1,0 +1,102 @@
+<launch>
+  <!--
+    Stage 11: full frontier-based exploration stack.
+    Pipeline:
+      Gazebo (wide_obstacles)
+      + gazebo_model_controller (cmd_vel -> Gazebo model)
+      + cmd_vel_forward_only_filter  (cmd_vel_raw -> cmd_vel)
+      + gazebo_truth_odom (odom -> base_footprint)
+      + Gmapping (map -> odom, /map)
+      + move_base (exploration config)  [no AMCL, no map_server]
+      + explore_lite (frontier goals to move_base)
+      + RViz (frontier_exploration.rviz)
+
+    Constraints:
+      - AMCL is NOT launched here. Gmapping publishes map -> odom.
+      - map_server (static map) is NOT launched here. /map comes from Gmapping.
+      - safe_mapping_driver is NOT launched. explore_lite owns motion goals.
+      - Only Gmapping runs (no Hector).
+  -->
+
+  <arg name="use_sim_time"          default="true"/>
+  <arg name="use_rviz"              default="true"/>
+  <arg name="gazebo_gui"            default="true"/>
+  <arg name="use_explore_lite"      default="true"/>
+  <arg name="world"                 default="wide_obstacles"/>
+  <arg name="scan_topic"            default="/lidar/scan"/>
+  <arg name="base_frame"            default="base_footprint"/>
+  <arg name="odom_frame"            default="odom"/>
+  <arg name="map_frame"             default="map"/>
+  <arg name="model_name"            default="omni_robot"/>
+  <arg name="exploration_duration"  default="300"/>
+
+  <!-- Sub-system toggles. Off-by-default flags allow swapping pieces in tests. -->
+  <arg name="use_gazebo_model_controller" default="true"/>
+  <arg name="use_gazebo_truth_odom"       default="true"/>
+  <arg name="use_cmd_vel_safety_filter"   default="true"/>
+  <arg name="use_gmapping"                default="true"/>
+  <arg name="use_move_base"               default="true"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <!-- 1. Gazebo + robot URDF. -->
+  <include file="$(find robot_description)/launch/gazebo_lidar_wide_obstacles.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="gui"          value="$(arg gazebo_gui)"/>
+    <arg name="x"            value="0.0"/>
+    <arg name="y"            value="0.0"/>
+    <arg name="z"            value="0.05"/>
+    <arg name="yaw"          value="0.0"/>
+  </include>
+
+  <!-- 2. Velocity pipeline: cmd_vel_raw -> filter -> cmd_vel -> Gazebo model. -->
+  <include if="$(arg use_cmd_vel_safety_filter)" file="$(find omni_base_controller)/launch/cmd_vel_forward_only_filter.launch">
+    <arg name="cmd_vel_in"     value="/cmd_vel_raw"/>
+    <arg name="cmd_vel_out"    value="/cmd_vel"/>
+    <arg name="max_vel_x"      value="0.6"/>
+    <arg name="max_vel_theta"  value="0.9"/>
+  </include>
+
+  <include if="$(arg use_gazebo_model_controller)" file="$(find omni_base_controller)/launch/gazebo_model_controller.launch">
+    <arg name="use_sim_time"          value="$(arg use_sim_time)"/>
+    <arg name="model_name"            value="$(arg model_name)"/>
+    <arg name="cmd_vel_topic"         value="/cmd_vel"/>
+    <arg name="max_angular_velocity"  value="0.5"/>
+  </include>
+
+  <!-- 3. Ground-truth odom: odom -> base_footprint. -->
+  <include if="$(arg use_gazebo_truth_odom)" file="$(find omni_base_controller)/launch/gazebo_truth_odom.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="model_name"   value="$(arg model_name)"/>
+    <arg name="odom_topic"   value="/odom"/>
+    <arg name="odom_frame"   value="$(arg odom_frame)"/>
+    <arg name="base_frame"   value="$(arg base_frame)"/>
+    <arg name="publish_tf"   value="true"/>
+  </include>
+
+  <!-- 4. Gmapping: produces /map and map -> odom. -->
+  <include if="$(arg use_gmapping)" file="$(find slam_benchmark)/launch/gmapping_lidar_wide_obstacles.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="scan_topic"   value="$(arg scan_topic)"/>
+    <arg name="base_frame"   value="$(arg base_frame)"/>
+    <arg name="odom_frame"   value="$(arg odom_frame)"/>
+    <arg name="map_frame"    value="$(arg map_frame)"/>
+  </include>
+
+  <!-- 5. move_base exploration. NOT AMCL. NOT map_server. -->
+  <include if="$(arg use_move_base)" file="$(find nav_bringup)/launch/move_base_exploration.launch">
+    <arg name="scan_topic"    value="$(arg scan_topic)"/>
+    <arg name="cmd_vel_topic" value="/cmd_vel_raw"/>
+    <arg name="use_sim_time"  value="$(arg use_sim_time)"/>
+  </include>
+
+  <!-- 6. explore_lite. -->
+  <include if="$(arg use_explore_lite)" file="$(find slam_benchmark)/launch/explore_lite.launch">
+    <arg name="map_topic"        value="/map"/>
+    <arg name="robot_base_frame" value="$(arg base_frame)"/>
+  </include>
+
+  <!-- 7. RViz with frontier-tuned config. -->
+  <node if="$(arg use_rviz)" pkg="rviz" type="rviz" name="rviz_frontier_exploration"
+        args="-d $(find slam_benchmark)/rviz/frontier_exploration.rviz" required="false"/>
+</launch>

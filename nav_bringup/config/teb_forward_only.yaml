@@ -15,16 +15,16 @@ TebLocalPlannerROS:
   feasibility_check_no_poses: 5
 
   # Forward-only: planner should not request reverse or lateral motion.
-  max_vel_x: 0.20
+  max_vel_x: 0.6
   # TEB warns when exact zero reverse speed is below penalty_epsilon.
   # The command filter still clamps any reverse or lateral command to zero.
   max_vel_x_backwards: 0.001
   max_vel_y: 0.001
-  max_vel_theta: 0.30
+  max_vel_theta: 0.9
 
-  acc_lim_x: 0.25
+  acc_lim_x: 0.6
   acc_lim_y: 0.001
-  acc_lim_theta: 0.35
+  acc_lim_theta: 1.00
 
   min_turning_radius: 0.0
   wheelbase: 0.0

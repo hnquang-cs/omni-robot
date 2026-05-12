@@ -1,0 +1,111 @@
+Panels:
+  - Class: rviz/Displays
+    Name: Displays
+  - Class: rviz/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz/Grid
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Cell Size: 1.0
+    - Class: rviz/TF
+      Enabled: true
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: false
+    - Class: rviz/RobotModel
+      Enabled: true
+      Name: RobotModel
+      Robot Description: robot_description
+    - Class: rviz/Map
+      Enabled: true
+      Name: Map (Gmapping)
+      Topic: /map
+      Alpha: 0.7
+      Color Scheme: map
+      Draw Behind: true
+    - Class: rviz/LaserScan
+      Enabled: true
+      Name: LiDAR Scan
+      Topic: /lidar/scan
+      Style: Points
+      Size (m): 0.04
+      Color Transformer: FlatColor
+      Color: 255; 30; 30
+    - Class: rviz/Odometry
+      Enabled: true
+      Name: Odometry
+      Topic: /odom
+      Shape: Arrow
+      Position Tolerance: 0.05
+      Angle Tolerance: 0.05
+    - Class: rviz/Map
+      Enabled: true
+      Name: Global Costmap
+      Topic: /move_base/global_costmap/costmap
+      Alpha: 0.5
+      Color Scheme: costmap
+      Draw Behind: true
+    - Class: rviz/Map
+      Enabled: false
+      Name: Local Costmap
+      Topic: /move_base/local_costmap/costmap
+      Alpha: 0.5
+      Color Scheme: costmap
+      Draw Behind: false
+    - Class: rviz/Path
+      Enabled: true
+      Name: Global Plan
+      Topic: /move_base/GlobalPlanner/plan
+      Color: 25; 255; 0
+      Line Style: Lines
+      Line Width: 0.03
+    - Class: rviz/Path
+      Enabled: true
+      Name: TEB Local Plan
+      Topic: /move_base/TebLocalPlannerROS/local_plan
+      Color: 0; 170; 255
+      Line Style: Lines
+      Line Width: 0.03
+    - Class: rviz/Pose
+      Enabled: true
+      Name: move_base Goal
+      Topic: /move_base_simple/goal
+      Color: 255; 25; 0
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Name: Frontier Markers
+      Topic: /explore/frontiers
+      Queue Size: 100
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Name: Simple Frontiers (fallback)
+      Topic: /simple_frontiers
+      Queue Size: 100
+  Enabled: true
+  Fixed Frame: map
+  Name: root
+  Tools:
+    - Class: rviz/Interact
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+    - Class: rviz/FocusCamera
+    - Class: rviz/Measure
+    - Class: rviz/SetGoal
+      Topic: /move_base_simple/goal
+    - Class: rviz/SetInitialPose
+      Topic: /initialpose
+  Value: true
+  Views:
+    Current:
+      Class: rviz/TopDownOrtho
+      Name: Current View
+      Scale: 25
+      Target Frame: map
+Window Geometry:
+  Height: 900
+  Width: 1400
